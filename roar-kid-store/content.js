@@ -122,8 +122,8 @@ function applySettings(s) {
 
 function wire(video) {
   if (state.wiredVideo === video) return;
-  // A media element can only ever have ONE MediaElementSource. If YouTube
-  // swaps the element (SPA navigation), we rebuild the whole context.
+  // A media element can only ever have ONE MediaElementSource. If the site
+  // swaps the element (SPA navigation, next episode), we rebuild the context.
   if (state.ctx) state.ctx.close();
 
   const ctx = new AudioContext();
@@ -184,10 +184,13 @@ function wire(video) {
   chrome.storage.sync.get(DEFAULTS, applySettings);
 }
 
-// YouTube is a single-page app: watch for the <video> element appearing
-// or being replaced across navigations.
+// All supported sites (YouTube, Netflix, Prime Video) are single-page apps:
+// watch for the <video> element appearing or being replaced across
+// navigations. Netflix/Prime billboard trailers get wired too — harmless,
+// the same correction applies, and the observer moves us to the real
+// player element once it exists.
 function findAndWire() {
-  // Cheap early-out: YouTube reuses its <video> across SPA navigations, so
+  // Cheap early-out: sites reuse their <video> across SPA navigations, so
   // once wired we can skip the querySelector on every mutation.
   if (state.wiredVideo && state.wiredVideo.isConnected) return;
   const video = document.querySelector("video.html5-main-video, video");

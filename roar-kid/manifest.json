@@ -2,10 +2,14 @@
   "manifest_version": 3,
   "name": "Roar, kid! — Audiogram EQ for YouTube",
   "version": "0.1.0",
-  "description": "Audiogram-driven multiband compression for YouTube audio. Prescriptive-style gain (simplified), per ear, with output limiting.",
+  "description": "Audiogram-driven multiband compression for YouTube, Netflix, and Prime Video audio. Prescriptive-style gain (simplified), per ear, with output limiting.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://www.youtube.com/*",
+    "https://www.netflix.com/*",
+    "https://www.primevideo.com/*",
+    "https://www.amazon.com/gp/video/*",
+    "https://www.amazon.com/Amazon-Video/*",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",
@@ -14,7 +18,13 @@
   "options_page": "options.html",
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*"],
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://www.netflix.com/*",
+        "https://www.primevideo.com/*",
+        "https://www.amazon.com/gp/video/*",
+        "https://www.amazon.com/Amazon-Video/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

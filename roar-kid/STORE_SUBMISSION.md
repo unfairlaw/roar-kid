@@ -1,5 +1,14 @@
 # Chrome Web Store Submission Kit
 
+> [!IMPORTANT]
+> **Branch note (feature/netflix-roar-kid):** the extension here also runs
+> on Netflix and Prime Video (Web Audio taps verified working on both,
+> 2026-07-18). The listing text below still describes the YouTube-only v1.
+> Before submitting the multi-service version: update summary/description
+> (EN + pt-BR), the single-purpose statement, and the host-permission
+> justifications to cover netflix.com, primevideo.com, and the amazon.com
+> video paths — and decide whether the store name keeps "for YouTube".
+
 Everything to paste into the developer dashboard at
 https://chrome.google.com/webstore/devconsole (one-time $5 registration).
 

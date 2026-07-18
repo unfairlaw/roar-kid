@@ -4,7 +4,7 @@
 
 # Roar, kid!
 
-**Audiogram-driven, per-ear EQ for YouTube — a listening supplement for kids and adults with hearing loss.**
+**Audiogram-driven, per-ear EQ for YouTube, Netflix, and Prime Video — a listening supplement for kids and adults with hearing loss.**
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4c8bf5)
 ![Web Audio API](https://img.shields.io/badge/Web%20Audio-API-e8543f)
