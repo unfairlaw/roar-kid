@@ -22,6 +22,19 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
+// Diagnostic variant: same fields plus a "reasoning" transcript that the
+// model must write BEFORE the arrays, so the answer follows the reasoning.
+const SCHEMA_DIAG = {
+  type: "object",
+  properties: {
+    reasoning: { type: "string",
+      description: "The panel's recorded deliberation: source choice, how each row/symbol was read, how every slot was decided" },
+    ...SCHEMA.properties,
+  },
+  required: ["reasoning", ...SCHEMA.required],
+  additionalProperties: false,
+};
+
 const $ = (id) => document.getElementById(id);
 const log = (msg) => { $("log").textContent += "\n" + msg; };
 
@@ -61,6 +74,7 @@ async function makeSession() {
 
 async function extract(blob) {
   const promptFile = $("promptSel").value;
+  const schema = promptFile === "prompt-diagnostic.txt" ? SCHEMA_DIAG : SCHEMA;
   log(`prompt: ${promptFile}`);
   const prompt = await (await fetch(chrome.runtime.getURL(promptFile))).text();
   const bitmap = await createImageBitmap(blob);
@@ -78,7 +92,7 @@ async function extract(blob) {
   }];
   let raw;
   try {
-    raw = await session.prompt(messages, { responseConstraint: SCHEMA });
+    raw = await session.prompt(messages, { responseConstraint: schema });
   } catch (e) {
     // Older builds want the image via append(), or reject responseConstraint
     // with multimodal input. Try the fallback and report which shape worked.
@@ -124,6 +138,7 @@ async function run(blob, truth) {
   $("result").innerHTML = "";
   try {
     const parsed = await extract(blob);
+    if (parsed.reasoning) log(`REASONING:\n${parsed.reasoning}`);
     if (truth) score(parsed, truth);
     else {
       $("result").innerHTML =
