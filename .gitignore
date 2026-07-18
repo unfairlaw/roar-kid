@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 .vscode/
 *.zip
+# real-report ground truth: local rubric only, never public
+spike-prompt-api/bera_truth.json

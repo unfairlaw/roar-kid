@@ -253,7 +253,18 @@ $("run").onclick = async () => {
   run(blob, truth);
 };
 $("photo").onchange = () => { $("runFile").disabled = !$("photo").files[0]; };
-$("runFile").onclick = () => run($("photo").files[0], null);
+$("runFile").onclick = async () => {
+  // Local-only rubric (gitignored): when bera_truth.json exists next to the
+  // spike, chosen-file runs are auto-scored against it.
+  let truth = null;
+  try {
+    truth = await (await fetch(chrome.runtime.getURL("bera_truth.json"))).json();
+    log("scoring against local bera_truth.json");
+  } catch {
+    log("no local bera_truth.json — unscored run");
+  }
+  run($("photo").files[0], truth);
+};
 
 availability().then((a) => {
   if (a === "unavailable") log("\nVerdict: built-in AI path NOT feasible on this machine.");

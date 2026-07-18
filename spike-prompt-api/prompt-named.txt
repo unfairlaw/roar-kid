@@ -27,7 +27,16 @@ A previous panel processed a two-column BERA table that tested 500, 1000, 2000 a
 - It dumped EVERY cell of the table — uncorrected then corrected — into the output in reading order, so uncorrected values and wrong frequencies contaminated the result. Each frequency key must receive only its OWN corrected value.
 - It reported values for frequencies the table never tested, while its own note claimed they were null. The note must describe what the output actually contains.
 The correct output for that table was (right ear): hz250 = null (untested), hz500 = 30, hz1000 = 35, hz2000 = 40, hz3000 = null (untested), hz4000 = 35, hz6000 = null (untested), hz8000 = null (untested).
-Before answering, the panel re-checks: does every frequency key hold either the corrected value from that exact frequency's table row, or null when no such row exists? If not, the branch is wrong and must be re-derived from the transcription.
+
+A second panel got the right ear perfect but was ALSO PRUNED for its left ear. The table's 500 Hz row read "OE sem correção: 55 | OE com correção: 40". The panel answered:
+  left: hz250 = 55, hz500 = 40, hz1000 = 55, ...
+Two leaks, one mechanism: the "sem correção" 55 — a number that exists ONLY in the uncorrected column — appeared in the output twice. It was placed in hz250 even though the table has NO 250 Hz row (that key must be null), and it displaced the true corrected value at hz1000. The corrected left ear was: hz250 = null, hz500 = 40, hz1000 = the 1000 Hz row's own "com correção" value.
+
+FINAL CHECK, performed cell by cell before answering:
+- Does every frequency key hold either the "com correção" value from that exact frequency's table row, or null when no such row exists?
+- Does any number in the output appear ONLY in a "sem correção" column of the transcription? If yes, the branch is wrong.
+- Is every key without a table row (often hz250, hz3000, hz6000, hz8000) null?
+If any check fails, re-derive the ears from the transcription.
 </known_failure>
 
 <rules>
