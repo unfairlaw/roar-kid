@@ -35,6 +35,50 @@ const SCHEMA_DIAG = {
   additionalProperties: false,
 };
 
+// Named-keys variant: no positional arrays anywhere the model can see.
+// Each ear is an object keyed by frequency; code converts to arrays after.
+const earObject = (ear) => ({
+  type: "object",
+  properties: Object.fromEntries(BANDS.map((f) => [`hz${f}`, {
+    type: ["number", "null"],
+    description: `${ear} ear threshold dB HL at ${f} Hz, null if untested`,
+  }])),
+  required: BANDS.map((f) => `hz${f}`),
+  additionalProperties: false,
+});
+const SCHEMA_NAMED = {
+  type: "object",
+  properties: {
+    reasoning: SCHEMA_DIAG.properties.reasoning,
+    right: earObject("right (red O, OD)"),
+    left: earObject("left (blue X, OE)"),
+    read_from_table: SCHEMA.properties.read_from_table,
+    confidence_note: SCHEMA.properties.confidence_note,
+  },
+  required: ["reasoning", "right", "left", "read_from_table", "confidence_note"],
+  additionalProperties: false,
+};
+const earToArray = (o) => BANDS.map((f) => o?.[`hz${f}`] ?? null);
+
+// Two-turn pipeline: the model transcribes and maps in SEPARATE generations,
+// sharing one stateful session (the image stays in context for turn 2).
+const SCHEMA_NAMED2 = structuredClone(SCHEMA_NAMED);
+delete SCHEMA_NAMED2.properties.reasoning;
+SCHEMA_NAMED2.required = SCHEMA_NAMED2.required.filter((k) => k !== "reasoning");
+
+const TURN1 = `Transcribe this hearing report exactly. Transcribe only — do not interpret, do not calculate.
+- If it contains a printed numeric table: write one line per table row with every column labeled, e.g.
+  "500 Hz — OD sem correção: 45 | OD com correção: 30 | OE sem correção: 55 | OE com correção: 40"
+- If it is a plotted chart: list every red O (right ear, OD) and every blue X (left ear, OE) as "frequency Hz — dB value". The dB axis increases downward.
+Ignore all patient-identifying information.`;
+
+const TURN2 = `From your transcription above ONLY, fill the JSON fields:
+- For each ear, each frequency key (hz250 … hz8000) gets that exact frequency's value: the "com correção" (corrected) number if the table has two columns per ear, otherwise the transcribed value.
+- right = OD (red O), left = OE (blue X).
+- A frequency key with no transcribed line is null. Do not guess.
+- read_from_table: true if you transcribed a printed table, false if a chart.
+- confidence_note: one sentence — source used, untested frequencies, anything ambiguous.`;
+
 const $ = (id) => document.getElementById(id);
 const log = (msg) => { $("log").textContent += "\n" + msg; };
 
@@ -72,10 +116,35 @@ async function makeSession() {
   });
 }
 
+async function extractTwoTurn(blob) {
+  const bitmap = await createImageBitmap(blob);
+  log(`image: ${bitmap.width}x${bitmap.height}`);
+  const session = await makeSession();
+  log("session created — turn 1: transcribe…");
+  const t0 = performance.now();
+  const transcript = await session.prompt([{
+    role: "user",
+    content: [{ type: "text", value: TURN1 }, { type: "image", value: bitmap }],
+  }]);
+  log(`TURN 1 transcription:\n${transcript}`);
+  log("turn 2: map…");
+  const raw = await session.prompt(TURN2, { responseConstraint: SCHEMA_NAMED2 });
+  log(`model answered in ${((performance.now() - t0) / 1000).toFixed(1)}s total`);
+  log(`raw output:\n${raw}`);
+  session.destroy();
+  const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)[0]);
+  parsed.right = earToArray(parsed.right);
+  parsed.left = earToArray(parsed.left);
+  parsed.reasoning = transcript;
+  return parsed;
+}
+
 async function extract(blob) {
   const promptFile = $("promptSel").value;
-  const schema = promptFile === "prompt.txt" || promptFile === "prompt-nano.txt"
-    ? SCHEMA : SCHEMA_DIAG;
+  if (promptFile === "two-turn") return extractTwoTurn(blob);
+  const schema = promptFile === "prompt-named.txt" ? SCHEMA_NAMED
+    : promptFile === "prompt.txt" || promptFile === "prompt-nano.txt" ? SCHEMA
+    : SCHEMA_DIAG;
   log(`prompt: ${promptFile}`);
   const prompt = await (await fetch(chrome.runtime.getURL(promptFile))).text();
   const bitmap = await createImageBitmap(blob);
@@ -110,7 +179,13 @@ async function extract(blob) {
   // may wrap it in prose or fences — salvage the first JSON object.
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("no JSON object in model output");
-  return JSON.parse(match[0]);
+  const parsed = JSON.parse(match[0]);
+  // Named-keys responses: convert ear objects to the usual 8-slot arrays
+  if (parsed.right && !Array.isArray(parsed.right)) {
+    parsed.right = earToArray(parsed.right);
+    parsed.left = earToArray(parsed.left);
+  }
+  return parsed;
 }
 
 function score(parsed, truth) {
