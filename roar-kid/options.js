@@ -289,6 +289,8 @@ $("extract").onclick = async () => {
   const { apiKeys = {} } = await chrome.storage.local.get("apiKeys");
   const provider = typed[0] ?? PROVIDERS.find((p) => apiKeys[p]);
   if (!provider) {
+    // No key anywhere: use the on-device engine when this machine has it.
+    if (builtinAvailable) return runBuiltin();
     $("err").textContent =
       "Paste one provider's API key above first (saving it is optional).";
     return;
@@ -357,17 +359,20 @@ $("discard").onclick = () => {
 
 // Built-in AI path: shown only where Chrome's on-device model can run.
 // Same review pipeline as the BYOK providers — nothing applies unchecked.
+// When no provider key exists, the main Extract button falls back to it.
+let builtinAvailable = false;
 (async () => {
   if (typeof LanguageModel === "undefined") return;
   try {
     const a = await LanguageModel.availability({ expectedInputs: [{ type: "image" }] });
     if (a === "unavailable") return;
+    builtinAvailable = true;
     $("builtinRow").style.display = "flex";
     $("builtinNote").style.display = "block";
   } catch { /* probing failed — keep the option hidden */ }
 })();
 
-$("extractBuiltin").onclick = async () => {
+async function runBuiltin() {
   $("err").textContent = "";
   const file = $("photo").files[0];
   if (!file) { $("err").textContent = "Choose a photo first."; return; }
@@ -392,4 +397,6 @@ $("extractBuiltin").onclick = async () => {
     $("busy").textContent = "reading chart…";
     $("busy").style.display = "none";
   }
-};
+}
+
+$("extractBuiltin").onclick = runBuiltin;
