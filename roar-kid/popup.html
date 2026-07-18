@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Roar, kid! audiogram</title>
+<style>
+  /* Design: a clinical audiogram chart, drawn the way audiologists draw it.
+     Red O = right ear, blue X = left ear (the real plotting convention).
+     Y axis inverted: hearing loss goes DOWN the page. */
+  :root {
+    --paper: #fbfaf6;
+    --grid: #d8d5cc;
+    --ink: #22211d;
+    --right-red: #b3261e;
+    --left-blue: #1f4e9c;
+    --shade: #efece4;
+  }
+  body {
+    width: 340px; margin: 0; background: var(--paper); color: var(--ink);
+    font: 13px/1.4 -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 12px 14px 8px; border-bottom: 1px solid var(--grid);
+  }
+  h1 { font-size: 14px; margin: 0; letter-spacing: 0.02em; font-weight: 650; }
+  .mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 11px; }
+  #chartWrap { padding: 10px 14px 4px; }
+  canvas { display: block; cursor: crosshair; touch-action: none; }
+  .row {
+    display: flex; gap: 8px; align-items: center; padding: 8px 14px;
+  }
+  .ear-toggle {
+    display: flex; border: 1px solid var(--grid); border-radius: 999px; overflow: hidden;
+  }
+  .ear-toggle button {
+    border: 0; background: transparent; padding: 5px 12px; cursor: pointer;
+    font: inherit; font-size: 12px;
+  }
+  .ear-toggle button.on-right { background: var(--right-red); color: #fff; }
+  .ear-toggle button.on-left  { background: var(--left-blue);  color: #fff; }
+  .spacer { flex: 1; }
+  label.switch { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+  footer {
+    padding: 6px 14px 12px; font-size: 11px; color: #6b675c;
+    border-top: 1px solid var(--grid);
+  }
+  #vol { width: 90px; accent-color: var(--ink); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Roar, kid!</h1>
+    <span class="mono" id="readout">tap chart to plot</span>
+  </header>
+
+  <div id="chartWrap"><canvas id="chart" width="312" height="240"></canvas></div>
+
+  <div class="row">
+    <div class="ear-toggle">
+      <button id="btnRight" class="on-right">O right</button>
+      <button id="btnLeft">X left</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="mono">vol</span>
+    <input id="vol" type="range" min="0.2" max="1.5" step="0.05" value="1" />
+    <label class="switch"><input type="checkbox" id="enabled" checked />on</label>
+  </div>
+
+  <footer>
+    Plot the thresholds from a real audiogram. Shaded band =
+    normal-hearing range. Not a medical device — a listening supplement.
+  </footer>
+
+<script src="popup.js"></script>
+</body>
+</html>

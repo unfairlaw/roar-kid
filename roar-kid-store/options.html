@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Roar, kid! — Settings</title>
+<style>
+  :root {
+    --paper: #fbfaf6; --grid: #d8d5cc; --ink: #22211d;
+    --right-red: #b3261e; --left-blue: #1f4e9c; --shade: #efece4;
+  }
+  body {
+    max-width: 640px; margin: 0 auto; padding: 24px 20px 48px;
+    background: var(--paper); color: var(--ink);
+    font: 14px/1.5 -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #6b675c; margin: 28px 0 10px; border-bottom: 1px solid var(--grid);
+    padding-bottom: 4px;
+  }
+  .sub { color: #6b675c; margin: 0 0 8px; }
+  .mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px; }
+  .keyrow { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  .keyrow label { width: 96px; }
+  .keyrow input {
+    flex: 1; padding: 6px 8px; border: 1px solid var(--grid); border-radius: 6px;
+    background: #fff; font-family: ui-monospace, monospace; font-size: 12px;
+  }
+  .keyrow .status { width: 16px; text-align: center; }
+  button {
+    padding: 7px 14px; border: 1px solid var(--ink); border-radius: 6px;
+    background: var(--ink); color: var(--paper); font: inherit; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--ink); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  select, input[type="file"] { font: inherit; }
+  select { padding: 6px 8px; border: 1px solid var(--grid); border-radius: 6px; background: #fff; }
+  .extract-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #preview {
+    margin-top: 14px; border: 1px solid var(--grid); border-radius: 8px;
+    background: #fff; padding: 12px; display: none;
+  }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: 4px 8px; text-align: center; font-size: 13px; }
+  th { color: #6b675c; font-weight: 500; }
+  td.r { color: var(--right-red); font-weight: 600; }
+  td.l { color: var(--left-blue); font-weight: 600; }
+  .note {
+    background: var(--shade); border-radius: 6px; padding: 8px 10px;
+    font-size: 12px; margin-top: 10px;
+  }
+  #busy { display: none; color: #6b675c; }
+  .warn { color: var(--right-red); font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Roar, kid! — settings</h1>
+  <p class="sub">Keys are stored only on this device (chrome.storage.local) and
+  sent only to the provider you choose. Nothing else sees them.</p>
+
+  <h2>API keys — bring your own</h2>
+  <div class="keyrow">
+    <label for="k-openai">OpenAI</label>
+    <input id="k-openai" type="password" placeholder="sk-..." autocomplete="off" />
+    <span class="status" id="s-openai"></span>
+  </div>
+  <div class="keyrow">
+    <label for="k-anthropic">Anthropic</label>
+    <input id="k-anthropic" type="password" placeholder="sk-ant-..." autocomplete="off" />
+    <span class="status" id="s-anthropic"></span>
+  </div>
+  <div class="keyrow">
+    <label for="k-google">Gemini</label>
+    <input id="k-google" type="password" placeholder="AIza..." autocomplete="off" />
+    <span class="status" id="s-google"></span>
+  </div>
+  <div class="keyrow">
+    <label for="k-xai">Grok (xAI)</label>
+    <input id="k-xai" type="password" placeholder="xai-..." autocomplete="off" />
+    <span class="status" id="s-xai"></span>
+  </div>
+  <button id="saveKeys" class="ghost">Save keys</button>
+
+  <h2>Import audiogram from photo</h2>
+  <p class="sub">Crop out any personally identifiable information before uploading —
+  the image is sent to the AI provider you select, and its use is subject to that
+  provider's terms of service and privacy policy.</p>
+  <div class="extract-controls">
+    <input type="file" id="photo" accept="image/*" />
+    <select id="provider">
+      <option value="openai">OpenAI</option>
+      <option value="anthropic">Anthropic</option>
+      <option value="google">Gemini</option>
+      <option value="xai">Grok</option>
+    </select>
+    <button id="extract">Extract thresholds</button>
+    <span id="busy">reading chart…</span>
+  </div>
+  <p class="warn" id="err"></p>
+
+  <div id="preview">
+    <table id="tbl"></table>
+    <div class="note" id="meta"></div>
+    <div style="margin-top:10px; display:flex; gap:8px;">
+      <button id="apply">Apply to audiogram</button>
+      <button id="discard" class="ghost">Discard</button>
+    </div>
+    <p class="sub" style="margin-top:8px;">Applying is not final — open the
+    extension popup to review each point on the chart and drag anything the
+    model misread.</p>
+  </div>
+
+<script src="options.js"></script>
+</body>
+</html>
