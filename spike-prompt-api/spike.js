@@ -60,7 +60,9 @@ async function makeSession() {
 }
 
 async function extract(blob) {
-  const prompt = await (await fetch(chrome.runtime.getURL("prompt.txt"))).text();
+  const promptFile = $("promptSel").value;
+  log(`prompt: ${promptFile}`);
+  const prompt = await (await fetch(chrome.runtime.getURL(promptFile))).text();
   const bitmap = await createImageBitmap(blob);
   log(`image: ${bitmap.width}x${bitmap.height}`);
   const session = await makeSession();
