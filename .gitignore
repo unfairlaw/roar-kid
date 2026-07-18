@@ -4,3 +4,5 @@ __pycache__/
 *.zip
 # real-report ground truth: local rubric only, never public
 spike-prompt-api/bera_truth.json
+# personal study notes, untracked by choice
+PROMPT_API_RESEARCH.md
