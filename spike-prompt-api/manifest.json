@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Roar, kid! — Chrome built-in AI spike",
+  "version": "0.0.1",
+  "description": "Throwaway probe: can Gemini Nano (Prompt API, on-device) extract audiogram thresholds? Opens as the extension's options page. Not for distribution.",
+  "options_page": "spike.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["test_audiogram.png", "test_audiogram_truth.json", "prompt.txt"],
+      "matches": []
+    }
+  ]
+}
