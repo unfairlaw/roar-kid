@@ -15,9 +15,10 @@ own API key.
 Hearing threshold values (sixteen numbers in dB HL) and playback preferences
 (enabled state, master volume) are stored in your browser via
 `chrome.storage.sync`, which Chrome may sync across your own signed-in
-browsers. API keys are stored only if you press "Save keys", and then via
+browsers. Your API key is stored only if you press "Save key", and then via
 `chrome.storage.local` only, which never leaves the device; a key pasted
-just for one import is used for that request and never stored. Roar, kid!
+just for one import is used for that request and never stored, and a saved
+key can be deleted at any time with "Remove key". Roar, kid!
 operates no backend and receives none of this data; the developers cannot
 see it.
 

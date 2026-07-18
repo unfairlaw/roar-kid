@@ -123,8 +123,9 @@ Health information: YES — hearing thresholds, stored locally in extension
 storage; transmitted nowhere by the extension. Photo import sends a
 user-selected image to a user-chosen AI provider under the user's own key.
 Authentication information: YES — user-supplied API keys, stored in
-chrome.storage.local only and only if the user presses "Save keys"; a key
-pasted for a single import is used for that request and never stored.
+chrome.storage.local only and only if the user presses "Save key"; a key
+pasted for a single import is used for that request and never stored, and
+saved keys are deletable in-UI ("Remove key").
 Certify: data is not sold, not used for unrelated purposes, not used for
 creditworthiness. All true — the extension has no server and no analytics.
 

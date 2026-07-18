@@ -182,6 +182,14 @@ $("saveKeys").onclick = () => {
   chrome.storage.local.set({ apiKeys });
 };
 
+$("removeKeys").onclick = () => {
+  chrome.storage.local.remove("apiKeys");
+  for (const p of PROVIDERS) {
+    $(`k-${p}`).value = "";
+    $(`s-${p}`).textContent = "";
+  }
+};
+
 $("extract").onclick = async () => {
   $("err").textContent = "";
   const file = $("photo").files[0];

@@ -56,11 +56,12 @@
 </head>
 <body>
   <h1>Roar, kid! — settings</h1>
-  <p class="sub">Keys are sent only to the provider you choose. Saving is
+  <p class="sub">Your key is sent only to the provider you choose. Saving is
   optional: a pasted key works for one-off imports and is never stored;
-  "Save keys" keeps it on this device only (chrome.storage.local).</p>
+  "Save key" keeps it on this device only (chrome.storage.local), and
+  "Remove key" deletes it.</p>
 
-  <h2>API keys — bring your own</h2>
+  <h2>API key — bring your own (one provider is enough)</h2>
   <div class="keyrow">
     <label for="k-openai">OpenAI</label>
     <input id="k-openai" type="password" placeholder="sk-..." autocomplete="off" />
@@ -81,7 +82,10 @@
     <input id="k-xai" type="password" placeholder="xai-..." autocomplete="off" />
     <span class="status" id="s-xai"></span>
   </div>
-  <button id="saveKeys" class="ghost">Save keys</button>
+  <div style="display:flex; gap:8px;">
+    <button id="saveKeys" class="ghost">Save key</button>
+    <button id="removeKeys" class="ghost">Remove key</button>
+  </div>
 
   <h2>Import audiogram from photo</h2>
   <p class="sub">Crop out any personally identifiable information before uploading —
