@@ -108,6 +108,7 @@ async function availability() {
 async function makeSession() {
   return LanguageModel.create({
     expectedInputs: [{ type: "image" }],
+    expectedOutputs: [{ type: "text", languages: ["en"] }],
     monitor(m) {
       m.addEventListener("downloadprogress", (e) => {
         log(`model download: ${Math.round((e.loaded / (e.total || 1)) * 100)}%`);
