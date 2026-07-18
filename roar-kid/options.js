@@ -182,7 +182,7 @@ const NANO_SCHEMA = {
   type: "object",
   properties: {
     reasoning: { type: "string",
-      description: "The panel's recorded deliberation: transcription of the table, then the mapping of corrected values" },
+      description: "The panel's recorded deliberation: source choice, how each row/symbol was read, how every slot was decided" },
     right: NANO_EAR("right (red O, OD)"),
     left: NANO_EAR("left (blue X, OE)"),
     read_from_table: SCHEMA.properties.read_from_table,
@@ -201,10 +201,19 @@ async function nanoSession(onDownload) {
   // Determinism: the API has no seed; greedy decoding is the control.
   // samplingMode is current spec, temperature/topK the deprecated fallback
   // still honored in extension contexts.
-  try { return await LanguageModel.create({ ...base, samplingMode: "most-predictable" }); }
-  catch {
-    try { return await LanguageModel.create({ ...base, temperature: 0, topK: 1 }); }
-    catch { return LanguageModel.create(base); }
+  try {
+    const s = await LanguageModel.create({ ...base, samplingMode: "most-predictable" });
+    console.log("[roar-kid] built-in AI decoding: samplingMode most-predictable");
+    return s;
+  } catch {
+    try {
+      const s = await LanguageModel.create({ ...base, temperature: 0, topK: 1 });
+      console.log("[roar-kid] built-in AI decoding: greedy temperature/topK");
+      return s;
+    } catch {
+      console.warn("[roar-kid] built-in AI decoding: DEFAULT SAMPLING (nondeterministic)");
+      return LanguageModel.create(base);
+    }
   }
 }
 
@@ -220,6 +229,7 @@ async function extractBuiltin(file) {
       role: "user",
       content: [{ type: "text", value: prompt }, { type: "image", value: bitmap }],
     }], { responseConstraint: NANO_SCHEMA });
+    console.log("[roar-kid] built-in AI raw output:", raw);
     const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)[0]);
     return {
       right: BANDS.map((f) => parsed.right?.[`hz${f}`] ?? null),
