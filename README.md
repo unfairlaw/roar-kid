@@ -10,6 +10,7 @@
 ![Web Audio API](https://img.shields.io/badge/Web%20Audio-API-e8543f)
 ![No server](https://img.shields.io/badge/server-none-2e9b57)
 ![Not a medical device](https://img.shields.io/badge/not%20a-medical%20device-6b675c)
+![License: MIT](https://img.shields.io/badge/license-MIT-2e9b57)
 
 </div>
 
@@ -40,7 +41,8 @@ value is shown for review before it is applied, and every point stays editable.
 - 🛡️ **Always-on limiter** — a hard −3 dB / 20:1 output limiter that
   prescriptive gain can never blast past. Non-negotiable child safety.
 - 📷 **Import from a photo** — extract thresholds from a clinical report using
-  your own OpenAI / Anthropic / Gemini key; values are reviewed before applying.
+  your own OpenAI / Anthropic / Gemini / Grok key; values are reviewed before
+  applying.
 - 🔒 **No server, no analytics** — thresholds live in your browser; the photo
   (if you use import) goes only to the provider you pick, under your own key.
 
@@ -100,5 +102,5 @@ during normal listening. See [`roar-kid/PRIVACY_POLICY.md`](roar-kid/PRIVACY_POL
 
 ## License
 
-Open source. (Add a `LICENSE` file — MIT is a good default — before publishing
-the repo.)
+[MIT](LICENSE) — free to use, modify, and share. The "not a medical device"
+disclaimer above still applies to anything you build from it.
