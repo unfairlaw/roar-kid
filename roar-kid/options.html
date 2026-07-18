@@ -56,12 +56,12 @@
 </head>
 <body>
   <h1>Roar, kid! — settings</h1>
-  <p class="sub">Your key is sent only to the provider you choose. Saving is
-  optional: a pasted key works for one-off imports and is never stored;
-  "Save key" keeps it on this device only (chrome.storage.local), and
-  "Remove key" deletes it.</p>
+  <p class="sub">Fill in one provider's box — that choice picks who the photo
+  is sent to. Saving is optional: a pasted key works for one-off imports and
+  is never stored; "Save key" keeps it on this device only
+  (chrome.storage.local), and "Remove key" deletes it.</p>
 
-  <h2>API key — bring your own (one provider is enough)</h2>
+  <h2>API key — bring your own</h2>
   <div class="keyrow">
     <label for="k-openai">OpenAI</label>
     <input id="k-openai" type="password" placeholder="sk-..." autocomplete="off" />
@@ -93,12 +93,6 @@
   provider's terms of service and privacy policy.</p>
   <div class="extract-controls">
     <input type="file" id="photo" accept="image/*" />
-    <select id="provider">
-      <option value="openai">OpenAI</option>
-      <option value="anthropic">Anthropic</option>
-      <option value="google">Gemini</option>
-      <option value="xai">Grok</option>
-    </select>
     <button id="extract">Extract thresholds</button>
     <span id="busy">reading chart…</span>
   </div>

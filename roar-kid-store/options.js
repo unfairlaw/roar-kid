@@ -172,7 +172,18 @@ chrome.storage.local.get({ apiKeys: {} }, ({ apiKeys }) => {
   }
 });
 
+// The filled-in box doubles as the provider choice, so exactly one key may
+// be present at a time.
+const typedProviders = () =>
+  PROVIDERS.filter((p) => $(`k-${p}`).value.trim());
+
 $("saveKeys").onclick = () => {
+  const typed = typedProviders();
+  if (typed.length > 1) {
+    $("err").textContent = "Only one provider API key is allowed.";
+    return;
+  }
+  $("err").textContent = "";
   const apiKeys = {};
   for (const p of PROVIDERS) {
     const v = $(`k-${p}`).value.trim();
@@ -193,16 +204,26 @@ $("removeKeys").onclick = () => {
 $("extract").onclick = async () => {
   $("err").textContent = "";
   const file = $("photo").files[0];
-  const provider = $("provider").value;
   if (!file) { $("err").textContent = "Choose a photo first."; return; }
 
-  // Prefer the key typed in the field — extraction works without saving, so
-  // a pasted key never has to touch disk. Saved keys are the fallback.
+  // The provider is whichever single box holds a key. A typed key wins over
+  // a saved one (and never has to touch disk); saved is the fallback.
+  const typed = typedProviders();
   const { apiKeys = {} } = await chrome.storage.local.get("apiKeys");
-  const key = $(`k-${provider}`).value.trim() || apiKeys[provider];
-  if (!key) {
+  const saved = PROVIDERS.filter((p) => apiKeys[p]);
+  let provider, key;
+  if (typed.length > 1 || (typed.length === 0 && saved.length > 1)) {
+    $("err").textContent = "Only one provider API key is allowed.";
+    return;
+  } else if (typed.length === 1) {
+    provider = typed[0];
+    key = $(`k-${provider}`).value.trim();
+  } else if (saved.length === 1) {
+    provider = saved[0];
+    key = apiKeys[provider];
+  } else {
     $("err").textContent =
-      `Paste a ${provider} key above first (saving it is optional).`;
+      "Paste one provider's API key above first (saving it is optional).";
     return;
   }
 
