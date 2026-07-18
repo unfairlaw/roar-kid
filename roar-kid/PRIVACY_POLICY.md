@@ -1,9 +1,10 @@
 # Roar, kid! Privacy Policy
 
-Last updated: July 17, 2026
+Last updated: July 18, 2026
 
 Roar, kid! is an open-source browser extension that applies audiogram-driven
-audio processing to YouTube playback. This policy describes what data the
+audio processing to playback on supported streaming sites (YouTube, Netflix,
+Prime Video). This policy describes what data the
 extension handles and where it goes. The short version: Roar, kid! has no
 server, collects nothing, and transmits data only to an AI provider you
 choose, only when you explicitly use the photo-import feature, using your

@@ -16,7 +16,8 @@
 
 ---
 
-Roar, kid! shapes YouTube's audio to a real audiogram. Instead of a generic
+Roar, kid! shapes YouTube, Netflix, and Prime Video audio to a real
+audiogram. Instead of a generic
 equalizer, it applies **per-ear, per-frequency-band wide-dynamic-range
 compression** modeled on how hearing aids amplify — quiet sounds boosted more,
 loud sounds boosted less — with a hard output limiter that is always on.
@@ -74,7 +75,8 @@ Full rationale, band math, and the 8-frequency (ASHA) basis are in
 
 1. `chrome://extensions` → enable **Developer mode**
 2. **Load unpacked** → select the [`roar-kid-store/`](roar-kid-store/) folder
-3. Open YouTube, click the icon, plot thresholds, press play.
+3. Open YouTube, Netflix, or Prime Video, click the icon, plot thresholds,
+   press play.
 
 Detailed local-testing steps and L/R troubleshooting are in
 [`roar-kid/README.md`](roar-kid/README.md#testing-locally).

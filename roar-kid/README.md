@@ -1,7 +1,8 @@
-# Roar, kid! — Audiogram-driven EQ for YouTube
+# Roar, kid! — Audiogram-driven EQ for YouTube, Netflix & Prime Video
 
 Open-source browser extension that applies **per-ear, multiband wide-dynamic-range
-compression** to YouTube audio, driven by a real audiogram. A listening
+compression** to YouTube, Netflix, and Prime Video audio, driven by a real
+audiogram. A listening
 supplement for people with mild hearing loss. **Not a medical device, not a
 hearing aid replacement** — especially not for children in classrooms.
 
@@ -9,7 +10,8 @@ hearing aid replacement** — especially not for children in classrooms.
 
 1. `chrome://extensions` → enable **Developer mode**
 2. **Load unpacked** → select this folder
-3. Open YouTube, click the extension icon, plot thresholds on the audiogram
+3. Open YouTube, Netflix, or Prime Video, click the extension icon, plot
+   thresholds on the audiogram
    (red O = right ear, blue X = left ear — the clinical convention), press play.
 
 ## Testing locally

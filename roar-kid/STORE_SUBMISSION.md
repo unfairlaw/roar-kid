@@ -1,37 +1,28 @@
 # Chrome Web Store Submission Kit
 
-> [!IMPORTANT]
-> **Branch note (feature/netflix-roar-kid):** the extension here also runs
-> on Netflix and Prime Video (Web Audio taps verified working on both,
-> 2026-07-18). The listing text below still describes the YouTube-only v1.
-> Before submitting the multi-service version: update summary/description
-> (EN + pt-BR), the single-purpose statement, and the host-permission
-> justifications to cover netflix.com, primevideo.com, and the amazon.com
-> video paths — and decide whether the store name keeps "for YouTube".
-
 Everything to paste into the developer dashboard at
 https://chrome.google.com/webstore/devconsole (one-time $5 registration).
 
 ## Store listing
 
-Name: Roar, kid! — Audiogram EQ for YouTube
+Name: Roar, kid! — Audiogram EQ for YouTube, Netflix & Prime Video
 
-Summary (132 chars max, 126 used):
-Hear YouTube clearly with mild hearing loss: audiogram-based equalizer,
-per-ear hearing-aid-style boost. Not a medical device.
+Summary (132 chars max, 125 used):
+Hear YouTube, Netflix & Prime Video clearly with mild hearing loss:
+audiogram equalizer, per-ear boost. Not a medical device.
 
 Description:
-Roar, kid! makes YouTube easier to hear for people who are hard of hearing
-or have mild hearing loss. Instead of a generic equalizer or volume
-booster, it reads your clinical audiogram — the hearing test chart your
-audiologist gives you — and applies per-ear, per-frequency compression
-modeled on how real hearing aids amplify sound: quiet sounds boosted more,
-loud sounds boosted less, with an always-on output limiter to protect your
-ears.
+Roar, kid! makes YouTube, Netflix, and Prime Video easier to hear for
+people who are hard of hearing or have mild hearing loss. Instead of a
+generic equalizer or volume booster, it reads your clinical audiogram —
+the hearing test chart your audiologist gives you — and applies per-ear,
+per-frequency compression modeled on how real hearing aids amplify sound:
+quiet sounds boosted more, loud sounds boosted less, with an always-on
+output limiter to protect your ears.
 
 Who it helps:
 • Mild to moderate hearing loss in one or both ears
-• Speech that sounds muffled or unclear in YouTube videos
+• Speech that sounds muffled or unclear in videos, series, and films
 • High-frequency hearing loss, where turning the volume up doesn't make
   words clearer
 
@@ -59,25 +50,25 @@ Store listing → "Add language" and paste the pt-BR block there.
 
 ## Store listing — Português (Brasil)
 
-Nome: Roar, kid! — EQ por audiograma para YouTube
+Nome: Roar, kid! — EQ por audiograma para YouTube, Netflix e Prime Video
 
-Resumo (máx. 132 caracteres, 131 usados):
-Ouça o YouTube com clareza na perda auditiva leve: equalizador baseado no
+Resumo (máx. 132 caracteres, 129 usados):
+Ouça YouTube, Netflix e Prime Video com clareza: equalizador baseado no
 audiograma, reforço por orelha. Não é dispositivo médico.
 
 Descrição:
-O Roar, kid! torna o YouTube mais fácil de ouvir para quem tem perda
-auditiva leve ou baixa audição. Em vez de um equalizador genérico ou
-amplificador de volume, ele lê o seu audiograma clínico — o exame de
-audiometria que o fonoaudiólogo entrega — e aplica compressão por orelha
-e por faixa de frequência, modelada na forma como aparelhos auditivos
-reais amplificam o som: sons baixos recebem mais reforço, sons altos
-recebem menos, com um limitador de saída sempre ativo para proteger seus
-ouvidos.
+O Roar, kid! torna YouTube, Netflix e Prime Video mais fáceis de ouvir
+para quem tem perda auditiva leve ou baixa audição. Em vez de um
+equalizador genérico ou amplificador de volume, ele lê o seu audiograma
+clínico — o exame de audiometria que o fonoaudiólogo entrega — e aplica
+compressão por orelha e por faixa de frequência, modelada na forma como
+aparelhos auditivos reais amplificam o som: sons baixos recebem mais
+reforço, sons altos recebem menos, com um limitador de saída sempre ativo
+para proteger seus ouvidos.
 
 Para quem ajuda:
 • Perda auditiva leve a moderada em um ou nos dois ouvidos
-• Fala abafada ou pouco clara nos vídeos do YouTube
+• Fala abafada ou pouco clara em vídeos, séries e filmes
 • Perda auditiva nas frequências agudas, quando aumentar o volume não
   deixa as palavras mais claras
 
@@ -104,19 +95,21 @@ especialmente no caso de crianças.
 
 ## Single purpose description
 
-Roar, kid! has one purpose: adjusting YouTube audio playback according to the
-user's hearing thresholds. All functionality (the audiogram editor, the
-photo import, the key storage) exists solely to configure that audio
-processing.
+Roar, kid! has one purpose: adjusting the audio playback of supported
+streaming sites (YouTube, Netflix, Prime Video) according to the user's
+hearing thresholds. All functionality (the audiogram editor, the photo
+import, the key storage) exists solely to configure that audio processing.
 
 ## Permission justifications
 
 storage — Persists the user's hearing thresholds and playback preferences
 (sync) and their own API keys (local, device-only).
 
-Host permission youtube.com — Required to inject the content script that
-processes the audio of YouTube's video element. The extension only runs on
-YouTube.
+Host permissions youtube.com, netflix.com, primevideo.com, and the
+amazon.com video paths (/gp/video/, /Amazon-Video/) — Required to inject
+the content script that processes the audio of each service's video
+element. The extension runs only on these streaming sites, and on
+amazon.com only on its video player paths.
 
 Host permissions api.openai.com, api.anthropic.com,
 generativelanguage.googleapis.com, api.x.ai — Used only by the optional
@@ -175,8 +168,9 @@ The `anthropic-dangerous-direct-browser-access` header is an official
 Anthropic opt-in, not a bypass, but if a reviewer questions it, point to
 Anthropic's CORS documentation.
 
-Decision (2026-07-18): v1 ships complete, photo import included, with all
-four AI host permissions. Do not preemptively strip the import. If a
+Decision (2026-07-18): v1 ships complete — the multi-service build
+(YouTube + Netflix + Prime Video, Web Audio taps verified on real
+accounts), photo import included, with all four AI host permissions. Do not preemptively strip the import. If a
 reviewer pushes back on those permissions, respond with the justifications
 above; only if the submission is formally rejected over them would a
 reduced build (import via the Python CLI only) be considered, as a
