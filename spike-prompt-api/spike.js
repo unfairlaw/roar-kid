@@ -74,7 +74,8 @@ async function makeSession() {
 
 async function extract(blob) {
   const promptFile = $("promptSel").value;
-  const schema = promptFile === "prompt-diagnostic.txt" ? SCHEMA_DIAG : SCHEMA;
+  const schema = promptFile === "prompt.txt" || promptFile === "prompt-nano.txt"
+    ? SCHEMA : SCHEMA_DIAG;
   log(`prompt: ${promptFile}`);
   const prompt = await (await fetch(chrome.runtime.getURL(promptFile))).text();
   const bitmap = await createImageBitmap(blob);
