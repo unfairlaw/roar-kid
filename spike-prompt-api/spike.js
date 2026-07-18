@@ -106,7 +106,7 @@ async function availability() {
 }
 
 async function makeSession() {
-  return LanguageModel.create({
+  const base = {
     expectedInputs: [{ type: "image" }],
     expectedOutputs: [{ type: "text", languages: ["en"] }],
     monitor(m) {
@@ -114,7 +114,17 @@ async function makeSession() {
         log(`model download: ${Math.round((e.loaded / (e.total || 1)) * 100)}%`);
       });
     },
-  });
+  };
+  // Greedy decoding: the shipping BYOK calls all pin temperature 0; without
+  // it Nano's sampling makes cell reads vary run to run.
+  try {
+    const s = await LanguageModel.create({ ...base, temperature: 0, topK: 1 });
+    log("decoding: greedy (temperature 0, topK 1)");
+    return s;
+  } catch (e) {
+    log(`greedy create rejected (${e.message}) — using default sampling`);
+    return LanguageModel.create(base);
+  }
 }
 
 async function extractTwoTurn(blob) {
