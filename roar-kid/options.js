@@ -188,9 +188,15 @@ $("extract").onclick = async () => {
   const provider = $("provider").value;
   if (!file) { $("err").textContent = "Choose a photo first."; return; }
 
+  // Prefer the key typed in the field — extraction works without saving, so
+  // a pasted key never has to touch disk. Saved keys are the fallback.
   const { apiKeys = {} } = await chrome.storage.local.get("apiKeys");
-  const key = apiKeys[provider];
-  if (!key) { $("err").textContent = `No ${provider} key saved above.`; return; }
+  const key = $(`k-${provider}`).value.trim() || apiKeys[provider];
+  if (!key) {
+    $("err").textContent =
+      `Paste a ${provider} key above first (saving it is optional).`;
+    return;
+  }
 
   const b64 = await new Promise((res, rej) => {
     const r = new FileReader();
