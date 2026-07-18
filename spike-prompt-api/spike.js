@@ -115,15 +115,22 @@ async function makeSession() {
       });
     },
   };
-  // Greedy decoding: the shipping BYOK calls all pin temperature 0; without
-  // it Nano's sampling makes cell reads vary run to run.
+  // Determinism: no seed exists in this API; make decoding greedy instead.
+  // samplingMode is the current spec; temperature/topK is the deprecated
+  // form still honored in extension contexts.
   try {
-    const s = await LanguageModel.create({ ...base, temperature: 0, topK: 1 });
-    log("decoding: greedy (temperature 0, topK 1)");
+    const s = await LanguageModel.create({ ...base, samplingMode: "most-predictable" });
+    log("decoding: samplingMode most-predictable");
     return s;
-  } catch (e) {
-    log(`greedy create rejected (${e.message}) — using default sampling`);
-    return LanguageModel.create(base);
+  } catch (e1) {
+    try {
+      const s = await LanguageModel.create({ ...base, temperature: 0, topK: 1 });
+      log("decoding: greedy (temperature 0, topK 1)");
+      return s;
+    } catch (e2) {
+      log(`deterministic create rejected (${e1.message} / ${e2.message}) — default sampling`);
+      return LanguageModel.create(base);
+    }
   }
 }
 
