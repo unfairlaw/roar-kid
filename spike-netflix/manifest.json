@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Roar, kid! — Netflix feasibility spike",
+  "version": "0.0.1",
+  "description": "Throwaway probe: can Web Audio tap Netflix's / Prime Video's DRM-protected video element? Shows a verdict overlay. Not for distribution.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.netflix.com/*",
+        "https://www.primevideo.com/*",
+        "https://www.amazon.com/gp/video/*",
+        "https://www.amazon.com/Amazon-Video/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
