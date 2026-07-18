@@ -41,8 +41,10 @@ value is shown for review before it is applied, and every point stays editable.
   own compressor + makeup gain, driven by the plotted thresholds.
 - 🛡️ **Always-on limiter** — a hard −3 dB / 20:1 output limiter that
   prescriptive gain can never blast past. Non-negotiable child safety.
-- 📷 **Import from a photo** — extract thresholds from a clinical report using
-  your own OpenAI / Anthropic / Gemini / Grok key; values are reviewed before
+- 📷 **Import from a photo** — extract thresholds from a clinical report:
+  fully on-device via Chrome's built-in AI where supported (no key, the photo
+  never leaves your machine — best on printed threshold tables), or with your
+  own OpenAI / Anthropic / Gemini / Grok key; values are reviewed before
   applying.
 - 🔒 **No server, no analytics** — thresholds live in your browser; the photo
   (if you use import) goes only to the provider you pick, under your own key.

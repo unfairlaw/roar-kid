@@ -29,9 +29,11 @@ Who it helps:
 How it works:
 • Plot your hearing thresholds on an interactive audiogram drawn to
   clinical conventions (red O for the right ear, blue X for the left)
-• Or import them from a photo of your hearing test report using your own
-  AI provider API key — every imported value is shown for review before it
-  is applied, and every point stays editable
+• Or import them from a photo of your hearing test report — fully
+  on-device with Chrome's built-in AI where supported (no key, the photo
+  never leaves your computer; best for reports with a printed threshold
+  table), or with your own AI provider API key. Every imported value is
+  shown for review before it is applied, and every point stays editable
 • 8 frequency bands (250 Hz–8 kHz), the standard range of diagnostic
   audiometry
 • Independent left/right processing, so each ear gets the boost it needs
@@ -76,10 +78,12 @@ Como funciona:
 • Marque seus limiares auditivos em um audiograma interativo desenhado
   nas convenções clínicas (O vermelho para a orelha direita, X azul para
   a esquerda)
-• Ou importe-os de uma foto do seu exame de audiometria usando sua
-  própria chave de API de um provedor de IA — cada valor importado é
-  exibido para revisão antes de ser aplicado, e todos os pontos continuam
-  editáveis
+• Ou importe-os de uma foto do seu exame de audiometria — totalmente no
+  dispositivo com a IA integrada do Chrome, quando disponível (sem chave,
+  a foto nunca sai do seu computador; ideal para laudos com tabela
+  impressa de limiares), ou usando sua própria chave de API de um
+  provedor de IA. Cada valor importado é exibido para revisão antes de
+  ser aplicado, e todos os pontos continuam editáveis
 • 8 bandas de frequência (250 Hz–8 kHz), a faixa padrão da audiometria
   diagnóstica
 • Processamento independente dos lados esquerdo e direito, para que cada
@@ -120,8 +124,10 @@ user's own key. No request is made outside this user-initiated action.
 ## Data usage disclosures (Privacy tab)
 
 Health information: YES — hearing thresholds, stored locally in extension
-storage; transmitted nowhere by the extension. Photo import sends a
-user-selected image to a user-chosen AI provider under the user's own key.
+storage; transmitted nowhere by the extension. Photo import either runs
+fully on-device via Chrome's built-in AI (image transmitted nowhere) or
+sends the user-selected image to a user-chosen AI provider under the
+user's own key.
 Authentication information: YES — user-supplied API keys, stored in
 chrome.storage.local only and only if the user presses "Save key"; a key
 pasted for a single import is used for that request and never stored, and

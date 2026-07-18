@@ -27,9 +27,13 @@ see it.
 Nothing is transmitted during normal listening. Audio processing happens
 entirely inside your browser.
 
-If, and only if, you use the optional "Import audiogram from photo" feature,
-the photo you select is sent directly from your browser to the AI provider
-you choose (OpenAI, Anthropic, Google, or xAI), authenticated with the API
+On devices that support Chrome's built-in AI, the photo import can run
+entirely on-device: the image is processed locally by the browser's own
+model and is transmitted nowhere, and no API key is involved.
+
+If instead you use the photo import with an AI provider, the photo you
+select is sent directly from your browser to the provider you choose
+(OpenAI, Anthropic, Google, or xAI), authenticated with the API
 key you supplied, for the sole purpose of extracting hearing thresholds.
 The image is not sent anywhere else and is not retained by the extension.
 Handling of the image by the provider is governed by that provider's own

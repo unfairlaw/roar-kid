@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Roar, kid! — Audiogram EQ for YouTube, Netflix & Prime Video",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Audiogram-driven multiband compression for YouTube, Netflix, and Prime Video audio. Prescriptive-style gain (simplified), per ear, with output limiting.",
   "permissions": ["storage"],
   "host_permissions": [

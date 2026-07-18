@@ -161,6 +161,77 @@ const EXTRACTORS = {
   google: callGemini,
 };
 
+// ------------------------------------------- Chrome built-in AI (on-device)
+// Gemini Nano via the Prompt API. Verified 16/16 on printed-table reports
+// (see spike-prompt-api/); plotted charts are beyond this model generation,
+// so the UI scopes it to tables. The image never leaves the device.
+// Nano can't index positional arrays reliably: each ear is an object keyed
+// hz250..hz8000, converted to the usual arrays after parsing.
+
+const NANO_EAR = (ear) => ({
+  type: "object",
+  properties: Object.fromEntries(BANDS.map((f) => [`hz${f}`, {
+    type: ["number", "null"],
+    description: `${ear} ear threshold dB HL at ${f} Hz, null if untested`,
+  }])),
+  required: BANDS.map((f) => `hz${f}`),
+  additionalProperties: false,
+});
+
+const NANO_SCHEMA = {
+  type: "object",
+  properties: {
+    reasoning: { type: "string",
+      description: "The panel's recorded deliberation: transcription of the table, then the mapping of corrected values" },
+    right: NANO_EAR("right (red O, OD)"),
+    left: NANO_EAR("left (blue X, OE)"),
+    read_from_table: SCHEMA.properties.read_from_table,
+    confidence_note: SCHEMA.properties.confidence_note,
+  },
+  required: ["reasoning", "right", "left", "read_from_table", "confidence_note"],
+  additionalProperties: false,
+};
+
+async function nanoSession(onDownload) {
+  const base = {
+    expectedInputs: [{ type: "image" }],
+    expectedOutputs: [{ type: "text", languages: ["en"] }],
+    monitor(m) { m.addEventListener("downloadprogress", onDownload); },
+  };
+  // Determinism: the API has no seed; greedy decoding is the control.
+  // samplingMode is current spec, temperature/topK the deprecated fallback
+  // still honored in extension contexts.
+  try { return await LanguageModel.create({ ...base, samplingMode: "most-predictable" }); }
+  catch {
+    try { return await LanguageModel.create({ ...base, temperature: 0, topK: 1 }); }
+    catch { return LanguageModel.create(base); }
+  }
+}
+
+async function extractBuiltin(file) {
+  const prompt = await (await fetch(chrome.runtime.getURL("prompt-builtin.txt"))).text();
+  const bitmap = await createImageBitmap(file);
+  const session = await nanoSession((e) => {
+    $("busy").textContent =
+      `downloading on-device model (one time): ${Math.round((e.loaded / (e.total || 1)) * 100)}%`;
+  });
+  try {
+    const raw = await session.prompt([{
+      role: "user",
+      content: [{ type: "text", value: prompt }, { type: "image", value: bitmap }],
+    }], { responseConstraint: NANO_SCHEMA });
+    const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)[0]);
+    return {
+      right: BANDS.map((f) => parsed.right?.[`hz${f}`] ?? null),
+      left: BANDS.map((f) => parsed.left?.[`hz${f}`] ?? null),
+      read_from_table: parsed.read_from_table,
+      confidence_note: parsed.confidence_note,
+    };
+  } finally {
+    session.destroy();
+  }
+}
+
 // ------------------------------------------------------------------- UI
 
 const $ = (id) => document.getElementById(id);
@@ -282,4 +353,43 @@ $("apply").onclick = () => {
 $("discard").onclick = () => {
   pending = null;
   $("preview").style.display = "none";
+};
+
+// Built-in AI path: shown only where Chrome's on-device model can run.
+// Same review pipeline as the BYOK providers — nothing applies unchecked.
+(async () => {
+  if (typeof LanguageModel === "undefined") return;
+  try {
+    const a = await LanguageModel.availability({ expectedInputs: [{ type: "image" }] });
+    if (a === "unavailable") return;
+    $("builtinRow").style.display = "flex";
+    $("builtinNote").style.display = "block";
+  } catch { /* probing failed — keep the option hidden */ }
+})();
+
+$("extractBuiltin").onclick = async () => {
+  $("err").textContent = "";
+  const file = $("photo").files[0];
+  if (!file) { $("err").textContent = "Choose a photo first."; return; }
+  $("extractBuiltin").disabled = $("extract").disabled = true;
+  $("busy").textContent = "reading on this device…";
+  $("busy").style.display = "inline";
+  try {
+    const raw = await extractBuiltin(file);
+    const right = fillGaps(raw.right);
+    const left = fillGaps(raw.left);
+    pending = {
+      right: clean(right.out),
+      left: clean(left.out),
+      inferred: [...new Set([...right.inferred, ...left.inferred])],
+      meta: raw,
+    };
+    renderPreview();
+  } catch (e) {
+    $("err").textContent = `On-device extraction failed — ${e.message}`;
+  } finally {
+    $("extractBuiltin").disabled = $("extract").disabled = false;
+    $("busy").textContent = "reading chart…";
+    $("busy").style.display = "none";
+  }
 };

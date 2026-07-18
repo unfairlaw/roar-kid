@@ -97,6 +97,14 @@
     <button id="extract">Extract thresholds</button>
     <span id="busy">reading chart…</span>
   </div>
+  <div class="extract-controls" id="builtinRow" style="display:none; margin-top:8px;">
+    <button id="extractBuiltin" class="ghost">Extract with Chrome's built-in AI</button>
+  </div>
+  <p class="sub" id="builtinNote" style="display:none; margin-top:4px;">
+  No key needed and the photo never leaves your device — Chrome's on-device
+  model reads it locally. Works best on reports with a printed threshold
+  table (like ABR/BERA results); for plotted charts, use a provider key
+  above. First use downloads the model (one time, a few GB).</p>
   <p class="warn" id="err"></p>
 
   <div id="preview">

@@ -10,7 +10,7 @@ Do **not** upload `roar-kid.zip` — that is the source/dev bundle.
 
 | Zip | Contents | Purpose |
 |-----|----------|---------|
-| **`roar-kid-store.zip`** | Runtime files only, at the **top level** of the archive: `manifest.json`, `popup.html`, `options.html`, `content.js`, `options.js`, `popup.js`, `prompt.txt`, `icons/`. | **Upload this.** It is exactly what the extension needs and nothing else. |
+| **`roar-kid-store.zip`** | Runtime files only, at the **top level** of the archive: `manifest.json`, `popup.html`, `options.html`, `content.js`, `options.js`, `popup.js`, `prompt.txt`, `prompt-builtin.txt`, `icons/`. | **Upload this.** It is exactly what the extension needs and nothing else. |
 | `roar-kid.zip` | Everything nested inside a `roar-kid/` folder, including `README.md`, `DOCUMENTATION.md`, `PRIVACY_POLICY.md`, `STORE_SUBMISSION.md`, and the standalone `extract_audiogram.py` Python CLI. | Source archive / backup. **Not** for the store. |
 
 Two reasons the store copy is separate:
@@ -32,7 +32,7 @@ file in `roar-kid/`, sync it over and repackage:
 # from the repo root
 cp roar-kid/manifest.json roar-kid/popup.html roar-kid/options.html \
    roar-kid/content.js roar-kid/options.js roar-kid/popup.js \
-   roar-kid/prompt.txt roar-kid-store/
+   roar-kid/prompt.txt roar-kid/prompt-builtin.txt roar-kid-store/
 cp roar-kid/icons/*.png roar-kid-store/icons/
 
 rm -f roar-kid-store.zip
