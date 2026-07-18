@@ -170,20 +170,25 @@ chrome.storage.local.get({ apiKeys: {} }, ({ apiKeys }) => {
   for (const p of PROVIDERS) {
     if (apiKeys[p]) { $(`k-${p}`).value = apiKeys[p]; $(`s-${p}`).textContent = "✓"; }
   }
+  lockOtherFields();
 });
 
 // The filled-in box doubles as the provider choice, so exactly one key may
-// be present at a time.
+// be present at a time: as soon as one box has content, the others lock.
 const typedProviders = () =>
   PROVIDERS.filter((p) => $(`k-${p}`).value.trim());
 
-$("saveKeys").onclick = () => {
+function lockOtherFields() {
   const typed = typedProviders();
-  if (typed.length > 1) {
-    $("err").textContent = "Only one provider API key is allowed.";
-    return;
+  for (const p of PROVIDERS) {
+    $(`k-${p}`).disabled = typed.length > 0 && !typed.includes(p);
   }
-  $("err").textContent = "";
+}
+for (const p of PROVIDERS) {
+  $(`k-${p}`).addEventListener("input", lockOtherFields);
+}
+
+$("saveKeys").onclick = () => {
   const apiKeys = {};
   for (const p of PROVIDERS) {
     const v = $(`k-${p}`).value.trim();
@@ -199,6 +204,7 @@ $("removeKeys").onclick = () => {
     $(`k-${p}`).value = "";
     $(`s-${p}`).textContent = "";
   }
+  lockOtherFields();
 };
 
 $("extract").onclick = async () => {
@@ -206,26 +212,17 @@ $("extract").onclick = async () => {
   const file = $("photo").files[0];
   if (!file) { $("err").textContent = "Choose a photo first."; return; }
 
-  // The provider is whichever single box holds a key. A typed key wins over
-  // a saved one (and never has to touch disk); saved is the fallback.
+  // The provider is whichever box holds a key. A typed key wins over a
+  // saved one (and never has to touch disk); saved is the fallback.
   const typed = typedProviders();
   const { apiKeys = {} } = await chrome.storage.local.get("apiKeys");
-  const saved = PROVIDERS.filter((p) => apiKeys[p]);
-  let provider, key;
-  if (typed.length > 1 || (typed.length === 0 && saved.length > 1)) {
-    $("err").textContent = "Only one provider API key is allowed.";
-    return;
-  } else if (typed.length === 1) {
-    provider = typed[0];
-    key = $(`k-${provider}`).value.trim();
-  } else if (saved.length === 1) {
-    provider = saved[0];
-    key = apiKeys[provider];
-  } else {
+  const provider = typed[0] ?? PROVIDERS.find((p) => apiKeys[p]);
+  if (!provider) {
     $("err").textContent =
       "Paste one provider's API key above first (saving it is optional).";
     return;
   }
+  const key = $(`k-${provider}`).value.trim() || apiKeys[provider];
 
   const b64 = await new Promise((res, rej) => {
     const r = new FileReader();
