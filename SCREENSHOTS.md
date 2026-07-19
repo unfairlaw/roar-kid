@@ -13,7 +13,7 @@ future-you reusing the technique on another project (bottom half).
 |------|---------|--------|
 | `01-popup-audiogram-1280x800.png` | Popup with a plausible mild sloping-loss audiogram plotted (both ears) | ✅ done |
 | `02-options-import-1280x800.png` | Options page: BYOK keys + photo import, English UI | ✅ done |
-| `03-youtube-popup-1280x800.png` | YouTube playing with the popup open over it | ❌ take manually (below) |
+| `03-youtube-popup-1280x800.png` | YouTube (theater mode, Big Buck Bunny title card) with the popup open over it | ✅ done (taken manually 2026-07-19, cropped to 1280×800) |
 
 ## Taking screenshot 3 manually
 

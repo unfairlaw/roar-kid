@@ -135,8 +135,8 @@ saved keys are deletable in-UI ("Remove key").
 Certify: data is not sold, not used for unrelated purposes, not used for
 creditworthiness. All true — the extension has no server and no analytics.
 
-Privacy policy URL: host PRIVACY_POLICY.md publicly (GitHub Pages or the
-repo's raw URL) and paste that link.
+Privacy policy URL: the repo is public, so paste
+https://github.com/unfairlaw/roar-kid/blob/main/roar-kid/PRIVACY_POLICY.md
 
 ## Remote code
 
@@ -144,13 +144,16 @@ Declare "No, I am not using remote code." All logic ships in the package;
 API calls exchange data (JSON), not executable code. This matters: MV3
 review rejects remotely hosted code.
 
-## Assets still needed before submission
+## Assets
 
-Screenshots: at least one, 1280×800 or 640×400 PNG. Recommended set: the
-popup audiogram with plotted thresholds, the options page, and YouTube
-playing with the popup open. Take these on a machine with the extension
-loaded; do not stage fake data — plot a plausible mild-loss audiogram.
-Optional small promo tile 440×280.
+Screenshots: done — three 1280×800 PNGs in `store-screenshots/`, refreshed
+2026-07-19 to the current UI (popup with the AI-import link and 15 dB
+shaded band; options page with the one-key provider flow and the Chrome
+built-in AI option; theater-mode YouTube with the popup open). All plotted
+curves are throwaway data, and no third-party brand imagery is in frame.
+To refresh after a UI change: `store-screenshots/tools/` + the recipe in
+`SCREENSHOTS.md`.
+Optional small promo tile 440×280 — not made.
 
 ## Submission steps
 
