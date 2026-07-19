@@ -30,9 +30,10 @@ const yFor = (db) => PAD.t + ((db - DB_MIN) / (DB_MAX - DB_MIN)) * (cv.height - 
 
 function draw() {
   g.clearRect(0, 0, cv.width, cv.height);
-  // normal-hearing shade (-10..20 dB HL)
+  // quiet-zone shade (-10..15 dB HL, pediatric criterion): thresholds in
+  // here need no boost
   g.fillStyle = "#efece4";
-  g.fillRect(PAD.l, yFor(-10), cv.width - PAD.l - PAD.r, yFor(20) - yFor(-10));
+  g.fillRect(PAD.l, yFor(-10), cv.width - PAD.l - PAD.r, yFor(15) - yFor(-10));
   // grid
   g.strokeStyle = "#d8d5cc"; g.lineWidth = 1;
   g.font = "10px ui-monospace, monospace"; g.fillStyle = "#6b675c";
@@ -99,6 +100,11 @@ function setEar(ear) {
 }
 document.getElementById("btnRight").onclick = () => setEar("right");
 document.getElementById("btnLeft").onclick = () => setEar("left");
+
+document.getElementById("aiLink").onclick = (e) => {
+  e.preventDefault();
+  chrome.runtime.openOptionsPage();
+};
 
 document.getElementById("enabled").onchange = (e) => { settings.enabled = e.target.checked; save(); };
 document.getElementById("vol").oninput = (e) => { settings.masterVolume = +e.target.value; save(); };

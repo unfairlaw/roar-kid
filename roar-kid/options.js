@@ -374,7 +374,10 @@ let builtinAvailable = false;
 (async () => {
   if (typeof LanguageModel === "undefined") return;
   try {
-    const a = await LanguageModel.availability({ expectedInputs: [{ type: "image" }] });
+    const a = await LanguageModel.availability({
+      expectedInputs: [{ type: "image" }],
+      expectedOutputs: [{ type: "text", languages: ["en"] }],
+    });
     if (a === "unavailable") return;
     builtinAvailable = true;
     $("builtinRow").style.display = "flex";
