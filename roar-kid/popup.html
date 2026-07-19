@@ -25,6 +25,7 @@
   }
   h1 { font-size: 14px; margin: 0; letter-spacing: 0.02em; font-weight: 650; }
   .mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 11px; }
+  #readout a { color: var(--left-blue); }
   #chartWrap { padding: 10px 14px 4px; }
   canvas { display: block; cursor: crosshair; touch-action: none; }
   .row {
@@ -51,7 +52,7 @@
 <body>
   <header>
     <h1>Roar, kid!</h1>
-    <span class="mono" id="readout">tap chart to plot</span>
+    <span class="mono" id="readout">tap chart to plot or <a href="#" id="aiLink">let AI do it</a></span>
   </header>
 
   <div id="chartWrap"><canvas id="chart" width="312" height="240"></canvas></div>
@@ -68,8 +69,9 @@
   </div>
 
   <footer>
-    Plot the thresholds from a real audiogram. Shaded band =
-    normal-hearing range. Not a medical device — a listening supplement.
+    Plot the thresholds from a real audiogram. Points below the shaded
+    band are where the boost happens. Not a medical device — a listening
+    supplement.
   </footer>
 
 <script src="popup.js"></script>
