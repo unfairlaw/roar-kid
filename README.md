@@ -104,6 +104,14 @@ Thresholds and preferences are stored in your browser (`chrome.storage.sync`);
 API keys stay device-only (`chrome.storage.local`). Nothing is transmitted
 during normal listening. See [`roar-kid/PRIVACY_POLICY.md`](roar-kid/PRIVACY_POLICY.md).
 
+## Support
+
+Roar, kid! is free, open source, and has no server costs passed on to anyone —
+but if it helps someone in your life hear their cartoons better and you'd like
+to say thanks:
+
+<a href="https://buymeacoffee.com/guilherme.burzynski"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-ffdd00?labelColor=22211d" alt="Buy me a coffee" /></a>
+
 ## License
 
 [MIT](LICENSE) — free to use, modify, and share. The "not a medical device"
