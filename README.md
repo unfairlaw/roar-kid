@@ -69,7 +69,10 @@ EQ over-amplifies loud passages; level-dependent gain per band is what real aids
 do — this is a simplified version of that.
 
 Full rationale, band math, and the 8-frequency (ASHA) basis are in
-[`roar-kid/DOCUMENTATION.md`](roar-kid/DOCUMENTATION.md).
+[`roar-kid/DOCUMENTATION.md`](roar-kid/DOCUMENTATION.md). For a study map of
+every technology in the project — Web Audio, the audiology, the AI import,
+the tooling — see [`TECHNOLOGIES.md`](TECHNOLOGIES.md) and its twelve
+deep-dives in [`docs/tech/`](docs/tech/).
 
 ## Install
 
@@ -90,6 +93,7 @@ Detailed local-testing steps and L/R troubleshooting are in
 | [`roar-kid-store/`](roar-kid-store/) | **The shippable extension** — runtime files only. Load/upload this. |
 | [`roar-kid/`](roar-kid/) | Dev copy + docs + the standalone Python extraction CLI. |
 | [`icons-preview/`](icons-preview/) | Icon generators and the synthetic test audiogram. |
+| [`TECHNOLOGIES.md`](TECHNOLOGIES.md) + [`docs/tech/`](docs/tech/) | Study map: one deep-dive doc per technology used in the project. |
 | `roar-kid-store.zip` | Packaged extension for the Chrome Web Store. |
 
 ## Packaging & release
