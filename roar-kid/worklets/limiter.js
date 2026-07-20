@@ -19,9 +19,22 @@ const CEILING_DB = -1;
 const LOOKAHEAD_S = 0.003;
 
 class RoarLimiterProcessor extends AudioWorkletProcessor {
-  constructor() {
+  constructor(options) {
     super();
-    this.ceiling = Math.pow(10, CEILING_DB / 20);
+    // The ceiling is adjustable in ONE direction only: clamped to
+    // CEILING_DB or lower, whether set at construction (processorOptions)
+    // or by a posted {ceilingDb} message (used by the attestation-gated
+    // child target, which runs several dB below the adult ceiling).
+    // Nothing can raise it above −1 dBFS — that guarantee is structural.
+    const clampDb = (db) =>
+      typeof db === "number" && isFinite(db) ? Math.min(CEILING_DB, db) : CEILING_DB;
+    this.ceiling = Math.pow(10, clampDb(options?.processorOptions?.ceilingDb) / 20);
+    this.port.onmessage = (e) => {
+      const db = e.data?.ceilingDb;
+      if (typeof db === "number" && isFinite(db)) {
+        this.ceiling = Math.pow(10, clampDb(db) / 20);
+      }
+    };
     this.la = Math.max(1, Math.round(sampleRate * LOOKAHEAD_S));
     this.buf = [new Float32Array(this.la), new Float32Array(this.la)];
     this.w = 0;

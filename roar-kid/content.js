@@ -27,9 +27,15 @@ const state = {
   wiredVideo: null,
   wdrcNodes: null, // {left, right} AudioWorkletNodes (worklet path)
   legacyChains: null, // {left, right} [{compressor, makeup}] (fallback path)
+  limiter: null, // worklet-path limiter node (ceiling messages)
+  legacyLimiter: null, // fallback-path DynamicsCompressorNode "limiter"
   masterGain: null,
   settings: null,
   wiring: false,
+  // Per-device loudness anchor (FR-3): {refDb, stale} once one exists for
+  // this machine, else null — and while null the system is RELATIVE, so
+  // absolute level/dose numbers are suppressed, not estimated.
+  anchor: null,
   // listening-dose accounting (fed by the limiter's meter messages)
   dose: { fraction: 0, levelDb: null, since: Date.now(), metering: false },
 };
@@ -40,7 +46,11 @@ const DEFAULTS = {
   left: [0, 0, 0, 0, 0, 0, 0, 0],
   right: [0, 0, 0, 0, 0, 0, 0, 0],
   masterVolume: 1.0,
-  targetMode: "comfort", // comfort | adult | child
+  targetMode: "comfort", // comfort | adult | child (child is gated, SR-2)
+  wdrcSpeed: "fast", // fast | slow detector time constants
+  // Child target stays locked until the options-page audiologist
+  // attestation; without it a stored "child" mode falls back to comfort.
+  childMode: { unlocked: false },
   calibration: { profile: "none", userOffsets: null, micOffsets: null },
 };
 
@@ -68,11 +78,33 @@ function applySettings(s) {
   state.source.disconnect();
   state.source.connect(s.enabled ? state.chainInput : state.masterGain);
 
+  // SR-2 gate: the child target only ever takes effect with the
+  // audiologist attestation on record; otherwise fall back to comfort.
+  const childActive = s.targetMode === "child" && s.childMode?.unlocked;
+  const mode = s.targetMode === "child" && !childActive ? "comfort" : s.targetMode;
+
+  // Child mode runs under a reduced output ceiling. The limiter clamps any
+  // request to −1 dBFS or lower, so this message can only ever lower it.
+  if (state.limiter) {
+    state.limiter.port.postMessage({
+      ceilingDb: childActive ? DSP.CHILD_CEILING_DB : DSP.CEILING_DB,
+    });
+  } else if (state.legacyLimiter) {
+    state.legacyLimiter.threshold.value =
+      -3 + (childActive ? DSP.CHILD_CEILING_DB - DSP.CEILING_DB : 0);
+  }
+
   const cal = DSP.calibrationOffsets(s.calibration);
   for (const ear of ["left", "right"]) {
-    const curves = DSP.bandCurves(s[ear], s.targetMode, cal);
+    const curves = DSP.bandCurves(s[ear], mode, cal);
     if (state.wdrcNodes) {
-      state.wdrcNodes[ear].port.postMessage({ curves });
+      state.wdrcNodes[ear].port.postMessage({
+        curves,
+        speed: s.wdrcSpeed,
+        // Level mapping uses the per-device anchor when one exists; the
+        // documented default assumption otherwise (shape-only, relative).
+        refDb: state.anchor?.refDb ?? DSP.REF_DBSPL_AT_FS,
+      });
     } else if (state.legacyChains) {
       curves.forEach((c, i) => {
         const band = state.legacyChains[ear][i];
@@ -84,8 +116,9 @@ function applySettings(s) {
         comp.threshold.value = -35;
         comp.ratio.value = 1 / (1 - slope);
         comp.knee.value = 20;
-        comp.attack.value = 0.005;
-        comp.release.value = 0.08;
+        const spd = DSP.WDRC_SPEEDS[s.wdrcSpeed] || DSP.WDRC_SPEEDS.fast;
+        comp.attack.value = spd.attack;
+        comp.release.value = spd.release;
         band.makeup.gain.setTargetAtTime(
           dbToLinear(c.g65),
           state.ctx.currentTime,
@@ -102,31 +135,59 @@ function applySettings(s) {
 }
 
 // ---------------------------------------------------------------- dose
-// The limiter meters its own output. Estimated A-weighted level assumes
-// full-scale RMS = REF_DBSPL_AT_FS (documented in dsp.js) at CURRENT master
-// volume position — an upper-bound-style estimate, not a measurement.
-// Dose reference: ITU-T H.870 Mode 2 (children/conservative): 100% weekly
-// dose = 75 dBA for 40 h. Resets per page load.
+// The limiter meters its own output. Absolute level and dose are computed
+// ONLY when a per-device loudness anchor exists (FR-3.1/SR-3): an
+// un-anchored point estimate can be wrong by 10–20 dB across hardware, so
+// until anchoring the system reports itself as relative and no number is
+// shown. Dose reference: ITU-T H.870 Mode 2 (children/conservative): 100%
+// weekly dose = 75 dBA for 40 h. Resets per page load.
 function onMeter(msg) {
   const { msq, dt } = msg;
-  if (!(msq > 0) || !(dt > 0)) return;
-  const level = 10 * Math.log10(msq) + DSP.REF_DBSPL_AT_FS;
-  state.dose.levelDb = level;
   state.dose.metering = true;
+  if (!(msq > 0) || !(dt > 0) || !state.anchor) return;
+  const level = 10 * Math.log10(msq) + state.anchor.refDb;
+  state.dose.levelDb = level;
   if (level > 40) {
     state.dose.fraction += (dt / (40 * 3600)) * Math.pow(10, (level - 75) / 10);
   }
 }
+
+// ------------------------------------------------------ loudness anchor
+// Anchors are saved by the options page in chrome.storage.local, keyed by
+// an output-device signature (FR-3.4). An exact signature match is a valid
+// anchor; if only anchors for OTHER signatures exist, the newest is used
+// but flagged stale so the UI can say "device changed — re-anchor".
+async function refreshAnchor() {
+  const sig = await DSP.outputDeviceSignature();
+  const { anchors = {} } = await chrome.storage.local.get("anchors");
+  if (anchors[sig]) {
+    state.anchor = { refDb: anchors[sig].refDb, stale: false };
+  } else {
+    const newest = Object.values(anchors).sort(
+      (a, b) => (b.when || 0) - (a.when || 0)
+    )[0];
+    state.anchor = newest ? { refDb: newest.refDb, stale: true } : null;
+  }
+  if (state.settings) applySettings(state.settings);
+}
+refreshAnchor();
+try {
+  navigator.mediaDevices.addEventListener("devicechange", refreshAnchor);
+} catch { /* no device events here — anchor still refreshes via storage */ }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg && msg.type === "roar-dose") {
     sendResponse({
       ok: true,
       metering: state.dose.metering,
-      levelDb: state.dose.levelDb,
-      dosePct: state.dose.fraction * 100,
+      anchored: !!state.anchor,
+      anchorStale: !!state.anchor?.stale,
+      // SR-5: surfaced whenever the DynamicsCompressorNode fallback graph
+      // is carrying the audio (weakened, non-brickwall safety path).
+      degraded: !!state.legacyChains,
+      levelDb: state.anchor ? state.dose.levelDb : null,
+      dosePct: state.anchor ? state.dose.fraction * 100 : null,
       sinceMs: Date.now() - state.dose.since,
-      refDbSplAtFs: DSP.REF_DBSPL_AT_FS,
     });
   }
   return false;
@@ -252,6 +313,8 @@ async function wire(video) {
     masterGain,
     wdrcNodes,
     legacyChains,
+    limiter: wdrcNodes ? limiter : null,
+    legacyLimiter: wdrcNodes ? null : limiter,
     wiring: false,
   });
 
@@ -277,7 +340,12 @@ new MutationObserver(findAndWire).observe(document.documentElement, {
 });
 findAndWire();
 
-// Live-update when the popup/options save new settings.
-chrome.storage.onChanged.addListener(() =>
-  chrome.storage.sync.get(DEFAULTS, applySettings)
-);
+// Live-update when the popup/options save new settings; anchors live in
+// storage.local, so those changes refresh the anchor lookup instead.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local") {
+    if (changes.anchors) refreshAnchor();
+    return;
+  }
+  chrome.storage.sync.get(DEFAULTS, applySettings);
+});

@@ -11,6 +11,9 @@ const DEFAULTS = {
   right: [0,0,0,0,0,0,0,0],
   masterVolume: 1.0,
   targetMode: "comfort", // comfort | adult | child gain rule
+  wdrcSpeed: "fast", // WDRC detector speed: fast | slow
+  childMode: { unlocked: false }, // SR-2 attestation gate (options page)
+  redFlagsAck: false, // SR-4 first-run notice acknowledged
   calibration: { profile: "none", userOffsets: null, micOffsets: null },
 };
 
@@ -117,32 +120,80 @@ document.getElementById("enabled").onchange = (e) => { settings.enabled = e.targ
 document.getElementById("vol").oninput = (e) => { settings.masterVolume = +e.target.value; save(); };
 
 // Target selector: which rule turns thresholds into per-band I/O curves.
-// "comfort" = conservative v0 rule; "adult"/"child" = NAL-/DSL-flavored
-// approximations (see DOCUMENTATION.md — approximations, not the real
-// proprietary formulas).
+// "comfort" = conservative v0 rule; "adult" = an approximation, NOT
+// NAL-NL2 (FR-1.1 — said here, where the choice is made, not only in
+// docs); "child" stays locked until the options-page audiologist
+// attestation (SR-2) and runs under a reduced output ceiling.
+const MODE_NOTES = {
+  comfort: "conservative default",
+  adult: "approximate — not NAL-NL2",
+  child: "audiologist-attested · lower ceiling",
+};
+
 function setMode(mode) {
   settings.targetMode = mode;
+  const unlocked = !!settings.childMode?.unlocked;
+  // A stored "child" choice without the attestation behaves as comfort —
+  // show what is actually applied.
+  const shown = mode === "child" && !unlocked ? "comfort" : mode;
   for (const b of document.querySelectorAll("#modeToggle button")) {
-    b.className = b.dataset.mode === mode ? "on-mode" : "";
+    b.className = b.dataset.mode === shown ? "on-mode" : "";
   }
+  document.getElementById("childBtn").classList.toggle("locked", !unlocked);
+  document.getElementById("modeNote").textContent = MODE_NOTES[shown];
 }
 for (const b of document.querySelectorAll("#modeToggle button")) {
-  b.onclick = () => { setMode(b.dataset.mode); save(); };
+  b.onclick = () => {
+    if (b.dataset.mode === "child" && !settings.childMode?.unlocked) {
+      document.getElementById("readout").textContent =
+        "child target is locked — unlock in settings (attestation)";
+      return;
+    }
+    setMode(b.dataset.mode);
+    save();
+  };
 }
 
-// Live estimated listening level / weekly sound dose from the content
-// script's limiter metering. Silent (blank) when no wired tab is active.
+// WDRC detector speed (FR-2.4): fast/syllabic vs slow — an exposed,
+// documented choice, not a buried constant.
+function setSpeed(speed) {
+  settings.wdrcSpeed = speed;
+  for (const b of document.querySelectorAll("#speedToggle button")) {
+    b.className = b.dataset.speed === speed ? "on-mode" : "";
+  }
+}
+for (const b of document.querySelectorAll("#speedToggle button")) {
+  b.onclick = () => { setSpeed(b.dataset.speed); save(); };
+}
+
+// Live level/dose from the content script's limiter metering. Absolute
+// numbers appear ONLY when a per-device loudness anchor exists (SR-3);
+// un-anchored, the display says "relative" instead of guessing. The same
+// line surfaces the degraded-fallback indicator (SR-5) and a stale-anchor
+// flag when the output device changed (FR-3.4).
 function pollDose() {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
     if (!tab?.id) return;
     chrome.tabs.sendMessage(tab.id, { type: "roar-dose" }, (r) => {
-      if (chrome.runtime.lastError || !r?.ok || !r.metering) {
-        document.getElementById("dose").textContent = "";
+      const el = document.getElementById("dose");
+      // The legacy fallback limiter has no meter port, so metering stays
+      // false there — but its degraded state must still be surfaced.
+      if (chrome.runtime.lastError || !r?.ok || (!r.metering && !r.degraded)) {
+        el.textContent = "";
+        el.className = "mono";
         return;
       }
-      const lvl = r.levelDb == null ? "—" : `~${Math.round(r.levelDb)} dB est`;
-      document.getElementById("dose").textContent =
-        `${lvl} · dose ${r.dosePct < 0.1 ? "<0.1" : r.dosePct.toFixed(1)}%`;
+      const parts = [];
+      if (r.degraded) parts.push("⚠ fallback limiter");
+      if (r.metering && !r.anchored) {
+        parts.push("relative — no anchor");
+      } else if (r.metering) {
+        const lvl = r.levelDb == null ? "—" : `~${Math.round(r.levelDb)} dB est`;
+        parts.push(`${lvl} · dose ${r.dosePct < 0.1 ? "<0.1" : r.dosePct.toFixed(1)}%`);
+        if (r.anchorStale) parts.push("anchor stale");
+      }
+      el.textContent = parts.join(" · ");
+      el.className = r.degraded || r.anchorStale ? "mono warn" : "mono";
     });
   });
 }
@@ -161,8 +212,16 @@ function save() {
     right: settings.right,
     masterVolume: settings.masterVolume,
     targetMode: settings.targetMode,
+    wdrcSpeed: settings.wdrcSpeed,
   }), 150);
 }
+
+// SR-4: the red-flag notice fronts the popup until acknowledged once.
+document.getElementById("redflagsOk").onclick = () => {
+  settings.redFlagsAck = true;
+  chrome.storage.sync.set({ redFlagsAck: true });
+  document.getElementById("redflags").style.display = "none";
+};
 
 chrome.storage.sync.get(DEFAULTS, (s) => {
   s.left = migrateBands(s.left);
@@ -171,6 +230,10 @@ chrome.storage.sync.get(DEFAULTS, (s) => {
   document.getElementById("enabled").checked = s.enabled;
   document.getElementById("vol").value = s.masterVolume;
   setMode(s.targetMode || "comfort");
+  setSpeed(s.wdrcSpeed || "fast");
+  if (!s.redFlagsAck) {
+    document.getElementById("redflags").style.display = "block";
+  }
   draw();
 });
 draw();

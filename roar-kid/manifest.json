@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Roar, kid! — Personal audio EQ for YouTube, Netflix & Prime Video",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Personal audio comfort EQ: shapes streaming audio to your audiogram with per-ear multiband processing and an always-on output limiter. Not a medical device.",
   "permissions": ["storage"],
   "host_permissions": [

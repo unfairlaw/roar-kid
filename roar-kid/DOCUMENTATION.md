@@ -52,12 +52,18 @@ band sum flat at unity: an all-zero audiogram is acoustically transparent
 (±1 dB from 100 Hz to 12 kHz, asserted by the test harness in `tests/`).
 
 The eight bands feed a per-ear WDRC `AudioWorklet` (`worklets/wdrc.js`)
-with a true RMS level detector (5 ms attack, 80 ms release) and an explicit
-per-band input/output curve: gain in dB defined at 50, 65, and 80 dB
-program level, linearly interpolated between the control points and held
-constant outside them. Program level is detected RMS dBFS plus a documented
-full-scale-to-SPL assumption (100 dB; see Calibration below). Gain
-decisions are made once per 128-sample block and smoothed per sample
+with a true RMS level detector and an explicit per-band input/output
+curve: gain in dB defined at 50, 65, and 80 dB program level, linearly
+interpolated between the control points and held constant outside them.
+The detector's time constants are a user-visible choice in the popup, not
+a buried constant, because fast-versus-slow compression is a genuinely
+contested parameter in the WDRC literature: **fast** (5 ms attack / 80 ms
+release) tracks syllable-level dips, **slow** (20 ms / 500 ms) rides the
+longer-term envelope and preserves more of the signal's own dynamics.
+Program level is detected RMS dBFS plus the reference mapping — the
+per-device loudness anchor when one exists, otherwise a documented
+default assumption (100 dB SPL at full scale; see Calibration below).
+Gain decisions are made once per 128-sample block and smoothed per sample
 (~10 ms) against zipper noise.
 
 The ears are reassembled by a `ChannelMergerNode`, pass through the master
@@ -70,16 +76,35 @@ guarantee — the test harness asserts that no output sample exceeds the
 ceiling under worst-case input. Master volume sits *before* the limiter on
 purpose: no gain stage anywhere in the graph can push output past the
 ceiling. The limiter is always active and is a safety requirement, not a
-feature. If AudioWorklet modules cannot load, the script falls back to the
-previous `DynamicsCompressorNode` graph (same crossover, compressor-based
-limiting): degraded, never unlimited.
+feature. Its ceiling is adjustable in one direction only: a construction
+option or port message can *lower* it (the attestation-gated child target
+runs at −7 dBFS) but any request above −1 dBFS is clamped — the guarantee
+is structural, and the harness asserts a raise attempt has no effect. If
+AudioWorklet modules cannot load, the script falls back to the previous
+`DynamicsCompressorNode` graph (same crossover, compressor-based
+limiting): degraded, never unlimited — and the popup surfaces a visible
+"fallback limiter" indicator whenever that weakened path is the one
+carrying audio.
 
-The limiter also meters its own output. The content script converts the
-metered level into an estimated listening dose using the conservative mode
-of Recommendation ITU-T H.870 (100% weekly dose = 75 dBA for 40 h) under
-the stated full-scale assumption, and the popup shows the running figure.
-It is an assumption-based estimate, clearly labeled as such — not a
-measurement, and no substitute for keeping device volume moderate.
+The limiter also meters its own output. When — and only when — a loudness
+anchor exists for the current output device, the content script converts
+the metered level into an estimated listening dose using the conservative
+mode of Recommendation ITU-T H.870 (100% weekly dose = 75 dBA for 40 h),
+and the popup shows the running figure, marked as an estimate. Without an
+anchor the system is honest about being *relative*: the popup shows
+"relative — no anchor" instead of a number, because an authoritative-
+looking level derived from an unmeasured assumption can be wrong by
+10–20 dB across laptop/headphone combinations. If the machine's output
+devices change after anchoring, the readout is flagged stale until the
+anchor is redone. None of this is a substitute for keeping device volume
+moderate.
+
+The end-to-end processing latency of the full chain — crossover group
+delay, WDRC block processing, and the limiter's 3 ms look-ahead — is
+measured by the test harness at ~3.3 ms (energy centroid of the impulse
+response at 48 kHz), comfortably inside the ITU lip-sync detectability
+budget for streaming video; there is no live-microphone path, so latency,
+not feedback, is the only timing concern.
 
 The reason the design uses multiband compression rather than static
 parametric EQ is loudness recruitment: a compressed usable dynamic range
@@ -92,40 +117,82 @@ approximates a simplified version of it.
 ### Prescriptive targets
 
 The popup offers three rules for turning thresholds into per-band I/O
-curves. **comfort** is the conservative v0 rule: gain at 65 dB program
-level is 0.45 × threshold (a variant of the classical half-gain rule) and
-the compression ratio grows with loss as 1 + loss/40, so a 0 dB HL band
-stays transparent at 1:1 while a 40 dB HL band is compressed at 2:1.
-**adult** is an NAL-R-flavored rule (0.15 × three-frequency average +
-0.31 × threshold + per-band corrections, gentler ratios). **child** is a
+curves. **comfort** is the conservative v0 rule and the first-run
+default: gain at 65 dB program level is 0.45 × threshold (a variant of
+the classical half-gain rule) and the compression ratio grows with loss
+as 1 + loss/40, so a 0 dB HL band stays transparent at 1:1 while a
+40 dB HL band is compressed at 2:1. **adult** is an NAL-R-flavored rule
+(0.15 × three-frequency average + 0.31 × threshold + per-band
+corrections, gentler ratios); the popup labels it "approximate — not
+NAL-NL2" right where the choice is made, because an approximation is
+acceptable only when disclosed where the user sees it. **child** is a
 DSL-flavored rule prescribing more gain at every band (0.6 × threshold,
 slightly stronger compression), reflecting the pediatric literature's
 audibility-first stance — published comparisons put DSL 6–25 dB above NAL
-for children's losses. Both named targets are explicitly *approximations
-inspired by* NAL and DSL; the genuine NAL-NL2 and DSL v5.0 formulas are
-proprietary, level-and-age-dependent, and remain on the roadmap. The ratio
-is unfolded into the three curve points as a gain slope of (1 − 1/ratio) dB
-per input dB around the 65 dB pivot; per-band gain is capped at 35 dB
-before the limiter ever gets involved. Thresholds are clamped to the −10 to
-70 dB HL range because the project scopes itself to mild-to-moderate loss.
+for children's losses.
+
+The child target is **locked by default**. FDA and professional-body
+guidance is unambiguous that self-fit amplification is designed and
+validated for adults: pediatric fitting depends on measured
+real-ear-to-coupler differences this tool cannot obtain, and a child's
+smaller ear canal receives higher SPL from the same signal. The target
+unlocks only through an explicit attestation on the options page — "an
+audiologist has reviewed this child's audiogram and verified these
+settings for this child" — and, when active, the output ceiling drops
+from −1 to −7 dBFS (the limiter clamps any request so the ceiling can
+only ever be lowered). Without the attestation, a stored "child"
+selection behaves as comfort and the popup shows what is actually
+applied.
+
+Both named targets are explicitly *approximations inspired by* NAL and
+DSL; the genuine NAL-NL2 and DSL v5.0 formulas are proprietary,
+level-and-age-dependent, and remain on the roadmap. The test harness
+compares the adult target against independently computed NAL-R reference
+points (±3 dB on a sloping mild-moderate audiogram) and the child target
+against its stated DSL-flavored reference points. The ratio is unfolded
+into the three curve points as a gain slope of (1 − 1/ratio) dB per input
+dB around the 65 dB pivot. Per-band gain is capped at 35 dB and
+thresholds are clamped to the −10 to 70 dB HL range: these are *scope*
+limits that keep the tool inside its intended mild-to-moderate range, not
+safety guarantees — the limiter is the safety guarantee.
 
 ### Calibration
 
 Gain in a browser is applied to the digital signal; what reaches the ear
 depends on the headphone's frequency response, its fit, and system volume,
-none of which a web page can know. The options page therefore offers a
-two-tier, fully optional calibration, and the documentation is explicit
-about the limits of each. Tier 1 is *relative*: a generic headphone-profile
-preset (clearly labeled as average shapes, not measurements) plus a
-reference-tone loudness match — the 1 kHz tone is the anchor and the user
-adjusts each band's tone until it sounds equally loud, producing per-band
-offsets. Tier 2 is *assisted-absolute in shape*: `calibrate_playback.py`
-plays each band's tone through the user's actual chain, records it with a
-cheap USB measurement microphone, computes the response relative to 1 kHz,
-and writes a correction JSON the options page imports. All correction
-offsets are clamped to ±12 dB and folded into the band curves. Neither tier
-is clinical probe-microphone verification, and the docs say so; without
-calibration, gains are internally consistent but not absolute.
+none of which a web page can know. The project splits the problem into
+absolute level and response shape, and treats them separately.
+
+**Absolute level — the loudness anchor.** The single largest source of
+error is the mapping from digital full scale to SPL at the ear, which
+varies 10–20 dB across hardware. Instead of trusting one global constant,
+the options page offers a guided in-situ anchoring flow: a 1 kHz
+reference tone plays at a fixed digital level while the user sets their
+*system* volume until the tone matches conversational-speech loudness
+(about 65 dB SPL — "someone talking to you across a table"); saving
+records the implied full-scale-to-SPL mapping. Anchors are keyed to a
+signature of the machine's audio output devices and stored in
+`chrome.storage.local` (an anchor is meaningless on another machine, so
+it never syncs). The WDRC's level mapping uses the anchor when one
+exists; the level/dose readout is *suppressed entirely* until then, and
+flagged stale when the output-device set changes, because the anchor is
+only valid for the chain it was set on. A self-reported loudness match is
+still not a measurement — but it is grounded in the user's actual
+hardware, which the old global assumption was not.
+
+**Response shape.** Two optional helpers, both shape-only corrections
+relative to 1 kHz. Tier 1: a generic headphone-profile preset (clearly
+labeled as average shapes, not measurements) plus a reference-tone
+loudness match across bands — the user adjusts each band's tone until it
+sounds equally loud, producing per-band offsets. Tier 2:
+`calibrate_playback.py` plays each band's tone through the user's actual
+chain, records it with a cheap USB measurement microphone, computes the
+response relative to 1 kHz, and writes a correction JSON the options page
+imports — shape-only by construction, and labeled as such. All correction
+offsets are clamped to ±12 dB and folded into the band curves; the test
+harness asserts the round trip (known corrections in → expected combined,
+clamped offsets out, landing 1:1 in the curves). Neither tier is clinical
+probe-microphone verification, and the docs and UI say so.
 
 Because YouTube is a single-page application, the content script watches the
 DOM with a `MutationObserver` and rebuilds the audio context when the video
@@ -145,10 +212,16 @@ blue X symbols. This is intentional — the chart the clinic hands a parent
 can be copied onto the popup point by point without translation. Thresholds
 are entered by tapping or dragging on the chart and snap to the clinical
 5 dB grid. The popup also carries an ear selector, the prescriptive-target
-selector (comfort / adult / child), a master volume slider, an enable
-toggle, and the estimated level/dose readout described above. Settings
-persist through `chrome.storage.sync` and the content script applies
-changes live via the `storage.onChanged` listener.
+selector (comfort / adult / child, with the adult approximation labeled
+and the child target locked as described above), the WDRC fast/slow
+speed toggle, a master volume slider, an enable toggle, and the
+level/dose readout described above. On first run the popup fronts a
+plain-language notice of the red-flag conditions that call for an ENT
+and audiologist *before* any self-adjustment — ear-to-ear asymmetry,
+tinnitus, drainage or pain, dizziness, sudden or one-sided change — and
+is dismissed once, permanently, with an explicit acknowledgment.
+Settings persist through `chrome.storage.sync` and the content script
+applies changes live via the `storage.onChanged` listener.
 
 The options page holds the BYOK key fields, the photo import flow, and the
 calibration section. Extracted thresholds are never applied silently: they
@@ -259,13 +332,19 @@ footer repeats that framing where a parent will actually read it.
 
 ## Known limitations and roadmap
 
-Calibration remains the fundamental limitation: even with the tone match
-and mic correction, the software cannot know true SPL at the eardrum, and
-the dose readout inherits the same assumption — everything downstream of
-that is an estimate. The adult/child targets are first-order approximations
-of NAL/DSL, not the real formulas; closer target tables are the main
-remaining DSP milestone. The dose model uses an unweighted level under the
-full-scale assumption rather than a true A-weighted measurement. Extraction
+Verification remains the fundamental limitation: even with the loudness
+anchor, tone match, and mic correction, the software cannot know true SPL
+at the eardrum — the anchor is a self-reported loudness judgment, not
+real-ear measurement, and everything downstream of it is an estimate. The
+self-fit trials that validate this product category all used professional
+support or real-ear/in-situ verification, so any claim here stays at
+"listening comfort," not measured benefit; the credible next step toward
+a benefit claim would be a small self-report study (APHAB or IOI-HA)
+comparing calibrated-on versus off. The adult/child targets are
+first-order approximations of NAL/DSL, not the real formulas; closer
+target tables are the main remaining DSP milestone. The dose model uses
+an unweighted level under the anchored mapping rather than a true
+A-weighted measurement. Extraction
 accuracy on symbol-only charts (no numeric table) is the weakest AI step
 and is mitigated, not solved, by the plausibility screen and un-skippable
 review; a purpose-built on-device CV/OCR path (numeric-table OCR plus

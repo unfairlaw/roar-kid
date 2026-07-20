@@ -7,13 +7,22 @@
 // peak-oriented, under-specified makeup gain) cannot express.
 //
 // The main thread posts {curves: [{g50,g65,g80} x 8]} — gain in dB at
-// 50/65/80 dB program level. Program level = detected RMS dBFS + REF
-// (the documented full-scale-to-SPL assumption). Between control points the
-// gain is linearly interpolated in dB; outside them it holds constant, so a
-// quiet passage never gets more than g50 and a loud one never less than g80.
+// 50/65/80 dB program level. Program level = detected RMS dBFS + refDb.
+// refDb defaults to the documented full-scale-to-SPL assumption and is
+// replaced by the per-device loudness anchor when one exists (posted as
+// {refDb}). Between control points the gain is linearly interpolated in dB;
+// outside them it holds constant, so a quiet passage never gets more than
+// g50 and a loud one never less than g80.
+//
+// {speed: "fast"|"slow"} selects the detector time constants (values
+// mirror dsp.js WDRC_SPEEDS — worklets can't import the shared module).
 
 const REF_DBSPL_AT_FS = 100;
 const GAIN_HARD_CAP_DB = 40; // absolute per-band cap, whatever the curve says
+const SPEEDS = {
+  fast: { attack: 0.005, release: 0.08 },
+  slow: { attack: 0.02, release: 0.5 },
+};
 
 class RoarWdrcProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -23,20 +32,30 @@ class RoarWdrcProcessor extends AudioWorkletProcessor {
     this.curves = Array.from({ length: n }, () => ({ g50: 0, g65: 0, g80: 0 }));
     this.env = new Float64Array(n).fill(1e-10); // RMS^2 envelope per band
     this.gain = new Float64Array(n).fill(1); // smoothed linear gain per band
-    // Detector: 5 ms attack, 80 ms release (speech-tracking WDRC territory).
-    this.attCoef = Math.exp(-1 / (sampleRate * 0.005));
-    this.relCoef = Math.exp(-1 / (sampleRate * 0.08));
+    this.refDb = REF_DBSPL_AT_FS;
+    this.setSpeed("fast");
     // Applied-gain smoothing: ~10 ms, kills zipper noise between blocks.
     this.gainCoef = Math.exp(-1 / (sampleRate * 0.01));
     this.port.onmessage = (e) => {
-      if (e.data && Array.isArray(e.data.curves)) this.curves = e.data.curves;
+      const d = e.data || {};
+      if (Array.isArray(d.curves)) this.curves = d.curves;
+      if (typeof d.refDb === "number" && isFinite(d.refDb)) {
+        this.refDb = Math.max(60, Math.min(120, d.refDb));
+      }
+      if (SPEEDS[d.speed]) this.setSpeed(d.speed);
     };
+  }
+
+  setSpeed(name) {
+    const s = SPEEDS[name];
+    this.attCoef = Math.exp(-1 / (sampleRate * s.attack));
+    this.relCoef = Math.exp(-1 / (sampleRate * s.release));
   }
 
   targetGainDb(band, levelDbfs) {
     const c = this.curves[band];
     if (!c) return 0;
-    const spl = levelDbfs + REF_DBSPL_AT_FS;
+    const spl = levelDbfs + this.refDb;
     let g;
     if (spl <= 50) g = c.g50;
     else if (spl >= 80) g = c.g80;
