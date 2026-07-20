@@ -120,9 +120,12 @@ async function callAnthropic(key, mime, b64) {
   return tool.input;
 }
 
-// Gemini's responseSchema is OpenAPI-style: nullable flag, not type arrays
+// Gemini's responseSchema is OpenAPI-style, a fixed proto: nullable flag
+// instead of type arrays, and no additionalProperties field at all — the
+// API 400s on any unknown schema key rather than ignoring it.
 function geminiSchema() {
   const s = structuredClone(SCHEMA);
+  delete s.additionalProperties;
   for (const ear of ["right", "left"]) {
     s.properties[ear].items = { type: "number", nullable: true };
   }
@@ -293,16 +296,20 @@ $("extract").onclick = async () => {
   const file = $("photo").files[0];
   if (!file) { $("err").textContent = "Choose a photo first."; return; }
 
-  // The provider is whichever box holds a key. A typed key wins over a
-  // saved one (and never has to touch disk); saved is the fallback.
+  // On-device is the default path (FR3/NFR2): the cloud runs only when the
+  // user has a key AND ticked the per-import consent box. The provider is
+  // whichever box holds a key; a typed key wins over a saved one.
   const typed = typedProviders();
   const { apiKeys = {} } = await chrome.storage.local.get("apiKeys");
   const provider = typed[0] ?? PROVIDERS.find((p) => apiKeys[p]);
-  if (!provider) {
-    // No key anywhere: use the on-device engine when this machine has it.
+  const consented = $("cloudConsent").checked;
+  if (!provider || !consented) {
     if (builtinAvailable) return runBuiltin();
-    $("err").textContent =
-      "Paste one provider's API key above first (saving it is optional).";
+    $("err").textContent = provider
+      ? "Tick the consent box to send the photo to the cloud provider — " +
+        "this device has no on-device model to use instead."
+      : "No on-device model here: paste one provider's API key above and " +
+        "tick the consent box (saving the key is optional).";
     return;
   }
   const key = $(`k-${provider}`).value.trim() || apiKeys[provider];
@@ -336,6 +343,32 @@ $("extract").onclick = async () => {
   }
 };
 
+// Physiological plausibility screen over an extracted pair of ears. These
+// flag patterns the LLM-audiogram literature associates with misreads
+// (fabricated flat traces, symbol/ear swaps, gridline slips); they are
+// warnings for the human reviewer, never auto-corrections.
+function plausibilityWarnings(right, left) {
+  const hz = (f) => (f >= 1000 ? f / 1000 + " kHz" : f + " Hz");
+  const warnings = [];
+  BANDS.forEach((f, i) => {
+    if (Math.abs(right[i] - left[i]) > 40) {
+      warnings.push(`Left/right differ by ${Math.abs(right[i] - left[i])} dB at ${hz(f)} — check the symbols weren't swapped.`);
+    }
+  });
+  for (const [label, vals] of [["right", right], ["left", left]]) {
+    for (let i = 1; i < vals.length; i++) {
+      if (Math.abs(vals[i] - vals[i - 1]) > 30) {
+        warnings.push(`Steep ${Math.abs(vals[i] - vals[i - 1])} dB jump between ${hz(BANDS[i - 1])} and ${hz(BANDS[i])} (${label} ear) — worth a second look.`);
+      }
+    }
+  }
+  const all = [...right, ...left];
+  if (all.every((v) => v === all[0])) {
+    warnings.push(`Every value reads ${all[0]} dB HL — perfectly flat identical ears are a classic misread.`);
+  }
+  return warnings;
+}
+
 function renderPreview() {
   const head = `<tr><th></th>${BANDS.map(
     (f) => `<th>${f >= 1000 ? f / 1000 + "k" : f}</th>`).join("")}</tr>`;
@@ -351,10 +384,20 @@ function renderPreview() {
     `${pending.meta.read_from_table ? "Read from the printed table." :
       "Estimated from plotted symbols — double-check every point."} ` +
     (pending.meta.confidence_note || "") + inferredNote;
+  const warnings = plausibilityWarnings(pending.right, pending.left);
+  $("plaus").style.display = warnings.length ? "block" : "none";
+  $("plaus").textContent = warnings.join(" ");
+  // Review is un-skippable: Apply stays dead until the checkbox is ticked,
+  // and the checkbox resets for every new extraction.
+  $("reviewed").checked = false;
+  $("apply").disabled = true;
   $("preview").style.display = "block";
 }
 
+$("reviewed").onchange = (e) => { $("apply").disabled = !e.target.checked; };
+
 $("apply").onclick = () => {
+  if (!$("reviewed").checked) return;
   chrome.storage.sync.set({ right: pending.right, left: pending.left });
   $("preview").style.display = "none";
   $("err").textContent = "";
@@ -413,3 +456,248 @@ async function runBuiltin() {
 }
 
 $("extractBuiltin").onclick = runBuiltin;
+
+// -------------------------------------------------------- calibration
+// Tier 1 self-calibration (FR5): a headphone-profile preset plus a
+// reference-tone loudness match, both stored as per-band dB offsets in
+// settings.calibration (chrome.storage.sync) and folded into the player's
+// band gains. Tier 2 is the mic-measured correction JSON import. All
+// offsets are clamped to ±12 dB in dsp.js before use.
+
+const CAL_DEFAULT = { profile: "none", userOffsets: null, micOffsets: null };
+let calibration = { ...CAL_DEFAULT };
+
+function saveCalibration() {
+  chrome.storage.sync.set({ calibration });
+}
+
+// --- reference-tone loudness match
+// One tone at a time; 1 kHz is the anchor (offset locked to 0). The tone is
+// played WITH the slider's offset applied, so the user hears the corrected
+// result while matching. Modest base level: -26 dBFS sine.
+let toneCtx = null, toneOsc = null, toneGain = null, toneBand = null;
+const TONE_BASE = 0.05;
+
+function stopTone() {
+  if (toneOsc) { try { toneOsc.stop(); } catch {} }
+  toneOsc = null;
+  toneBand = null;
+  for (const b of document.querySelectorAll("#toneRows button")) {
+    b.textContent = "play";
+  }
+}
+
+function playTone(i) {
+  if (toneBand === i) return stopTone();
+  stopTone();
+  if (!toneCtx) toneCtx = new AudioContext();
+  toneCtx.resume();
+  toneGain = new GainNode(toneCtx, {
+    gain: TONE_BASE * Math.pow(10, (calibration.userOffsets?.[i] || 0) / 20),
+  });
+  toneOsc = new OscillatorNode(toneCtx, { frequency: BANDS[i] });
+  toneOsc.connect(toneGain).connect(toneCtx.destination);
+  toneOsc.start();
+  toneBand = i;
+  document.querySelectorAll("#toneRows button")[i].textContent = "stop";
+}
+
+function renderToneRows() {
+  const rows = BANDS.map((f, i) => {
+    const anchor = f === 1000;
+    const v = anchor ? 0 : (calibration.userOffsets?.[i] || 0);
+    return `<div class="keyrow">
+      <label class="mono">${f >= 1000 ? f / 1000 + " kHz" : f + " Hz"}${anchor ? " ⚓" : ""}</label>
+      <button class="ghost" data-band="${i}">play</button>
+      <input type="range" data-band="${i}" min="-12" max="12" step="1"
+        value="${v}" ${anchor ? "disabled" : ""} style="flex:1;" />
+      <span class="mono" id="toneVal-${i}" style="width:44px; text-align:right;">${v > 0 ? "+" + v : v} dB</span>
+    </div>`;
+  });
+  $("toneRows").innerHTML = rows.join("");
+  for (const b of document.querySelectorAll("#toneRows button")) {
+    b.onclick = () => playTone(+b.dataset.band);
+  }
+  for (const s of document.querySelectorAll("#toneRows input[type=range]")) {
+    s.oninput = () => {
+      const i = +s.dataset.band;
+      const v = +s.value;
+      if (!calibration.userOffsets) calibration.userOffsets = BANDS.map(() => 0);
+      calibration.userOffsets[i] = v;
+      $(`toneVal-${i}`).textContent = `${v > 0 ? "+" + v : v} dB`;
+      if (toneBand === i && toneGain) {
+        toneGain.gain.setTargetAtTime(
+          TONE_BASE * Math.pow(10, v / 20), toneCtx.currentTime, 0.02);
+      }
+      saveCalibration();
+    };
+  }
+}
+
+$("toneReset").onclick = () => {
+  stopTone();
+  calibration.userOffsets = null;
+  saveCalibration();
+  renderToneRows();
+};
+
+$("hpProfile").onchange = (e) => {
+  calibration.profile = e.target.value;
+  saveCalibration();
+};
+
+// --- measurement-mic correction import (produced by calibrate_playback.py)
+function micStatusText() {
+  $("micStatus").textContent = calibration.micOffsets
+    ? `active: [${calibration.micOffsets.map((v) => (v > 0 ? "+" + v : v)).join(", ")}] dB`
+    : "none imported";
+}
+
+$("micFile").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const bands = data.bands_hz || data.bands;
+    const corr = data.correction_db;
+    if (!Array.isArray(corr) || corr.length !== BANDS.length ||
+        !corr.every((v) => typeof v === "number" && isFinite(v)) ||
+        (bands && JSON.stringify(bands) !== JSON.stringify(BANDS))) {
+      throw new Error("expected {bands_hz: [250..8000], correction_db: [8 numbers]}");
+    }
+    calibration.micOffsets = corr.map((v) => Math.max(-12, Math.min(12, Math.round(v * 10) / 10)));
+    saveCalibration();
+    micStatusText();
+  } catch (err) {
+    $("micStatus").textContent = `import failed — ${err.message}`;
+  }
+  e.target.value = "";
+};
+
+$("micClear").onclick = () => {
+  calibration.micOffsets = null;
+  saveCalibration();
+  micStatusText();
+};
+
+chrome.storage.sync.get({ calibration: CAL_DEFAULT }, (s) => {
+  calibration = { ...CAL_DEFAULT, ...s.calibration };
+  $("hpProfile").value = calibration.profile || "none";
+  renderToneRows();
+  micStatusText();
+});
+
+// -------------------------------------------------- loudness anchor (FR-3)
+// In-situ anchoring: a fixed-digital-level 1 kHz tone plays while the user
+// sets SYSTEM volume to conversational-speech loudness; saving records the
+// implied full-scale-to-SPL mapping, keyed to a signature of this
+// machine's audio outputs (chrome.storage.local — an anchor never syncs to
+// another machine). The content script suppresses level/dose readouts
+// until an anchor exists and flags it stale when the device set changes.
+
+const DSP = globalThis.RoarDSP;
+let anchorCtx = null, anchorOsc = null;
+
+function stopAnchorTone() {
+  if (anchorOsc) { try { anchorOsc.stop(); } catch {} }
+  anchorOsc = null;
+  $("anchorTone").textContent = "Play anchor tone";
+}
+
+$("anchorTone").onclick = () => {
+  if (anchorOsc) return stopAnchorTone();
+  if (!anchorCtx) anchorCtx = new AudioContext();
+  anchorCtx.resume();
+  const g = new GainNode(anchorCtx, { gain: DSP.ANCHOR_TONE_AMP });
+  anchorOsc = new OscillatorNode(anchorCtx, { frequency: 1000 });
+  anchorOsc.connect(g).connect(anchorCtx.destination);
+  anchorOsc.start();
+  $("anchorTone").textContent = "Stop tone";
+};
+
+async function renderAnchors() {
+  const sig = await DSP.outputDeviceSignature();
+  const { anchors = {} } = await chrome.storage.local.get("anchors");
+  const entries = Object.entries(anchors);
+  $("anchorStatus").textContent = anchors[sig]
+    ? `Anchor active for the current output device (“${anchors[sig].label}”, ` +
+      `saved ${new Date(anchors[sig].when).toLocaleDateString()}). ` +
+      `Level and dose readouts are on.`
+    : entries.length
+      ? "No anchor matches the current output device — the newest saved " +
+        "anchor is used but flagged stale. Re-anchor on this setup."
+      : "No anchor saved yet — the popup shows no level or dose numbers " +
+        "(relative mode).";
+  $("anchorList").innerHTML = entries
+    .map(([s, a], i) =>
+      `<div class="keyrow"><span class="sub" style="flex:1;">` +
+      `${a.label || "unnamed"} — ${new Date(a.when).toLocaleDateString()}` +
+      `${s === sig ? " (current device)" : ""}</span>` +
+      `<button class="ghost" data-sig="${encodeURIComponent(s)}">remove</button></div>`)
+    .join("");
+  for (const b of $("anchorList").querySelectorAll("button")) {
+    b.onclick = async () => {
+      const { anchors = {} } = await chrome.storage.local.get("anchors");
+      delete anchors[decodeURIComponent(b.dataset.sig)];
+      await chrome.storage.local.set({ anchors });
+      renderAnchors();
+    };
+  }
+}
+
+$("anchorSave").onclick = async () => {
+  stopAnchorTone();
+  const sig = await DSP.outputDeviceSignature();
+  const { anchors = {} } = await chrome.storage.local.get("anchors");
+  anchors[sig] = {
+    refDb: DSP.anchorRefDb(),
+    label: $("anchorLabel").value.trim() || "unnamed setup",
+    when: Date.now(),
+  };
+  await chrome.storage.local.set({ anchors });
+  renderAnchors();
+};
+
+try {
+  navigator.mediaDevices.addEventListener("devicechange", renderAnchors);
+} catch {}
+renderAnchors();
+
+// ------------------------------------------------ child target gate (SR-2)
+// The child target ships locked. Unlocking requires the explicit
+// audiologist attestation below; the popup and content script both check
+// this flag, and the active child target runs under a reduced limiter
+// ceiling (CHILD_CEILING_DB, clamped in the worklet so it can only ever
+// be lower than the adult ceiling).
+
+function renderChildGate(childMode) {
+  const unlocked = !!childMode?.unlocked;
+  $("childStatus").textContent = unlocked
+    ? `unlocked ${new Date(childMode.when).toLocaleDateString()} — ` +
+      `ceiling ${DSP.CHILD_CEILING_DB} dBFS`
+    : "locked — the child button in the popup is inactive";
+  $("childLock").disabled = !unlocked;
+  $("childAttest").checked = false;
+  $("childUnlock").disabled = true;
+}
+
+$("childAttest").onchange = (e) => {
+  $("childUnlock").disabled = !e.target.checked;
+};
+
+$("childUnlock").onclick = () => {
+  if (!$("childAttest").checked) return;
+  const childMode = { unlocked: true, when: Date.now() };
+  chrome.storage.sync.set({ childMode });
+  renderChildGate(childMode);
+};
+
+$("childLock").onclick = () => {
+  const childMode = { unlocked: false };
+  chrome.storage.sync.set({ childMode });
+  renderChildGate(childMode);
+};
+
+chrome.storage.sync.get({ childMode: { unlocked: false } }, (s) =>
+  renderChildGate(s.childMode)
+);

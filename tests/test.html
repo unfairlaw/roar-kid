@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Roar, kid! DSP tests</title>
+<style>
+  body { font: 14px/1.5 ui-monospace, monospace; background: #fbfaf6;
+         color: #22211d; max-width: 780px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 16px; }
+  .pass { color: #1a7a3a; }
+  .fail { color: #b3261e; font-weight: 700; }
+  pre { background: #efece4; padding: 10px; border-radius: 6px; overflow-x: auto; }
+</style>
+</head>
+<body>
+  <h1>Roar, kid! DSP test harness</h1>
+  <p>Serve the repo root over HTTP (<code>python3 -m http.server</code>) and
+  open <code>/tests/test.html</code>. Results also land in the console.</p>
+  <div id="results">running…</div>
+  <script src="../roar-kid/dsp.js"></script>
+  <script src="test.js"></script>
+</body>
+</html>

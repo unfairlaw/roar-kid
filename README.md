@@ -37,10 +37,18 @@ value is shown for review before it is applied, and every point stays editable.
 - 🦁 **Interactive audiogram** — plot right/left thresholds the way an
   audiologist draws them, across the 8-frequency diagnostic standard
   (250, 500, 1k, 2k, 3k, 4k, 6k, 8k Hz).
-- 🎚️ **Per-ear multiband WDRC** — eight bandpass bands per ear, each with its
-  own compressor + makeup gain, driven by the plotted thresholds.
-- 🛡️ **Always-on limiter** — a hard −3 dB / 20:1 output limiter that
-  prescriptive gain can never blast past. Non-negotiable child safety.
+- 🎚️ **Per-ear multiband WDRC** — a flat-summing Linkwitz–Riley crossover
+  into eight bands per ear, compressed in an `AudioWorklet` with true RMS
+  detection and per-band input/output curves driven by the plotted
+  thresholds. Three selectable gain rules: conservative **comfort**, plus
+  NAL-flavored **adult** and DSL-flavored **child** approximations.
+- 🛡️ **Always-on brickwall limiter** — a look-ahead `AudioWorklet` limiter
+  with a sample-accurate −1 dBFS ceiling, last node in the graph so nothing
+  bypasses it, feeding an estimated listening-dose readout (ITU-T H.870
+  conservative framing). Non-negotiable child safety.
+- 🎧 **Optional calibration** — headphone presets, a reference-tone loudness
+  match, and import of a correction curve measured with a cheap USB mic via
+  `calibrate_playback.py`. Without it, gains are relative, not absolute.
 - 📷 **Import from a photo** — extract thresholds from a clinical report:
   fully on-device via Chrome's built-in AI where supported (no key, the photo
   never leaves your machine — best on printed threshold tables), or with your
@@ -52,16 +60,21 @@ value is shown for review before it is applied, and every point stays editable.
 ## How it works
 
 ```
-<video> ─ MediaElementSource ─ ChannelSplitter
-   ├─ L: [250 500 1k 2k 3k 4k 6k 8k]  bandpass → compressor → makeup gain → Σ
-   └─ R: same, driven by the right-ear audiogram
-        └────────── ChannelMerger → limiter (−3 dB, 20:1) → volume → out
+<video> ─ MediaElementSource ─ upmix ─ ChannelSplitter
+   ├─ L: LR4 crossover [250 500 1k 2k 3k 4k 6k 8k] → WDRC worklet ─┐
+   └─ R: same, driven by the right-ear audiogram                   ├─
+        ChannelMerger → volume → look-ahead brickwall limiter → out
 ```
 
-Fitting rule (v0, deliberately conservative):
+Default fitting rule ("comfort", deliberately conservative):
 
-- makeup gain = `0.45 × threshold(dB HL)` (half-gain-ish rule)
+- gain at 65 dB program level = `0.45 × threshold(dB HL)` (half-gain-ish rule)
 - compression ratio = `1 + loss/40` (recruitment compensation)
+
+The `adult` / `child` selections apply NAL- and DSL-flavored approximations
+instead (documented as approximations — the real prescriptive formulas
+remain on the roadmap). A browser test harness in [`tests/`](tests/) checks
+crossover flatness at unity, WDRC level-dependence, and the limiter ceiling.
 
 Why not a static EQ? Hearing loss compresses the ear's dynamic range
 (recruitment): quiet sounds need lots of gain, loud sounds almost none. Static

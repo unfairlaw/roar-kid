@@ -5,14 +5,18 @@ https://chrome.google.com/webstore/devconsole (one-time $5 registration).
 
 ## Store listing
 
-Name: Roar, kid! — Audiogram EQ for YouTube, Netflix & Prime Video
+Name: Roar, kid! — Personal audio EQ for YouTube, Netflix & Prime Video
 
-Summary (132 chars max, 125 used):
-Hear YouTube, Netflix & Prime Video clearly with mild hearing loss: audiogram equalizer, per-ear boost. Not a medical device.
+(The item title updates automatically from the manifest name on package
+upload; the summary and description below are dashboard fields — paste them.)
+
+Summary (132 chars max, 126 used — keep identical to the manifest
+description):
+Personal audio comfort EQ: shapes streaming sound to your audiogram, per ear, with an always-on limiter. Not a medical device.
 
 Description (paragraphs are single lines on purpose — the store field keeps
 newlines literally, so paste as-is):
-Roar, kid! makes YouTube, Netflix, and Prime Video easier to hear for people who are hard of hearing or have mild hearing loss. Instead of a generic equalizer or volume booster, it reads your clinical audiogram — the hearing test chart your audiologist gives you — and applies per-ear, per-frequency compression modeled on how real hearing aids amplify sound: quiet sounds boosted more, loud sounds boosted less, with an always-on output limiter to protect your ears.
+Roar, kid! shapes the sound of YouTube, Netflix, and Prime Video to your personal hearing profile. Instead of a generic equalizer or volume booster, it reads your audiogram — the chart from a hearing test — and applies per-ear, per-frequency compression: quiet sounds get more boost, loud sounds get less, with an always-on output limiter. It is a listening-comfort and accessibility tool, not a medical device.
 
 Who it helps:
 • Mild to moderate hearing loss in one or both ears
@@ -24,6 +28,8 @@ How it works:
 • Or import them from a photo of your hearing test report — fully on-device with Chrome's built-in AI where supported (no key, the photo never leaves your computer; best for reports with a printed threshold table), or with your own AI provider API key. Every imported value is shown for review before it is applied, and every point stays editable
 • 8 frequency bands (250 Hz–8 kHz), the standard range of diagnostic audiometry
 • Independent left/right processing, so each ear gets the boost it needs
+• Choose a listening target: Comfort (gentle default), Adult, or Child — the Child target stays locked until an audiologist's guidance is confirmed, and lowers the output ceiling while active
+• Optional loudness calibration (options page) anchors the level readout in the popup; until you calibrate, levels are shown as relative only
 
 Private by design: open source, no server, no analytics, no data collection. Your hearing data never leaves your browser.
 
@@ -38,14 +44,17 @@ Store listing → "Add language" and paste the pt-BR block there.
 
 ## Store listing — Português (Brasil)
 
-Nome: Roar, kid! — EQ por audiograma para YouTube, Netflix e Prime Video
+Nome: Roar, kid! — EQ de áudio pessoal para YouTube, Netflix e Prime Video
 
-Resumo (máx. 132 caracteres, 129 usados):
-Ouça YouTube, Netflix e Prime Video com clareza: equalizador baseado no audiograma, reforço por orelha. Não é dispositivo médico.
+(O título do item segue o nome do manifest; o nome localizado é definido no
+bloco de idioma do painel junto com o resumo e a descrição abaixo.)
+
+Resumo (máx. 132 caracteres, 130 usados):
+EQ de conforto sonoro: molda o áudio do streaming ao seu audiograma, por orelha, limitador sempre ativo. Não é dispositivo médico.
 
 Descrição (parágrafos em linha única de propósito — o campo da loja
 preserva quebras de linha; cole como está):
-O Roar, kid! torna YouTube, Netflix e Prime Video mais fáceis de ouvir para quem tem perda auditiva leve ou baixa audição. Em vez de um equalizador genérico ou amplificador de volume, ele lê o seu audiograma clínico — o exame de audiometria que o fonoaudiólogo entrega — e aplica compressão por orelha e por faixa de frequência, modelada na forma como aparelhos auditivos reais amplificam o som: sons baixos recebem mais reforço, sons altos recebem menos, com um limitador de saída sempre ativo para proteger seus ouvidos.
+O Roar, kid! molda o som do YouTube, Netflix e Prime Video ao seu perfil auditivo pessoal. Em vez de um equalizador genérico ou amplificador de volume, ele lê o seu audiograma — o gráfico do exame de audição — e aplica compressão por orelha e por frequência: sons baixos recebem mais reforço, sons altos recebem menos, com um limitador de saída sempre ativo. É uma ferramenta de conforto de escuta e acessibilidade, não um dispositivo médico.
 
 Para quem ajuda:
 • Perda auditiva leve a moderada em um ou nos dois ouvidos
@@ -57,6 +66,8 @@ Como funciona:
 • Ou importe-os de uma foto do seu exame de audiometria — totalmente no dispositivo com a IA integrada do Chrome, quando disponível (sem chave, a foto nunca sai do seu computador; ideal para laudos com tabela impressa de limiares), ou usando sua própria chave de API de um provedor de IA. Cada valor importado é exibido para revisão antes de ser aplicado, e todos os pontos continuam editáveis
 • 8 bandas de frequência (250 Hz–8 kHz), a faixa padrão da audiometria diagnóstica
 • Processamento independente dos lados esquerdo e direito, para que cada ouvido receba o reforço de que precisa
+• Escolha um alvo de escuta: Conforto (padrão, suave), Adulto ou Criança — o alvo Criança permanece bloqueado até a confirmação de orientação fonoaudiológica, e reduz o teto de saída enquanto ativo
+• Calibração de volume opcional (página de opções) ancora o indicador de nível do popup; sem calibração, os níveis aparecem apenas como relativos
 
 Privacidade por padrão: código aberto, sem servidor, sem análise de uso, sem coleta de dados. Seus dados auditivos nunca saem do navegador.
 
@@ -93,16 +104,18 @@ review rejects remotely hosted code.
 
 ## Assets
 
-Screenshots: done — three 1280×800 PNGs in `store-screenshots/`, refreshed
-2026-07-19 to the current UI (popup with the AI-import link and 15 dB
+Screenshots: three 1280×800 PNGs in `store-screenshots/`, refreshed
+2026-07-19 to the **0.3.0** UI (popup with the AI-import link and 15 dB
 shaded band; options page with the one-key provider flow and the Chrome
 built-in AI option; theater-mode YouTube with the popup open). All plotted
 curves are throwaway data, and no third-party brand imagery is in frame.
-To refresh after a UI change: `store-screenshots/tools/` + the recipe in
+STALE for 0.5.0: the popup gained the target selector and level readout,
+and the options page gained calibration — refresh before or shortly after
+the 0.5.0 upload via `store-screenshots/tools/` + the recipe in
 `SCREENSHOTS.md`.
 Optional small promo tile 440×280 — not made.
 
-## Submission steps
+## Submission steps (first-time — done 2026-07-19, kept for reference)
 
 1. `zip` the extension folder contents (this kit produces
    roar-kid-store.zip with only runtime files — no Python, no docs).
@@ -111,6 +124,36 @@ Optional small promo tile 440×280 — not made.
 4. Add screenshots and the privacy policy URL.
 5. Submit. Review for extensions with host permissions and health data
    typically takes several days; respond to any reviewer email promptly.
+
+## Updating a published release (0.5.0 over the live 0.3.0, 2026-07-20)
+
+v0.3.0 was approved and published on 2026-07-20. To ship an update:
+
+1. Rebuild `roar-kid-store.zip` per `PACKAGING.md` (folder synced from
+   `roar-kid/`, manifest at the archive root, no `__pycache__`). The
+   manifest version must be strictly greater than the live one, and its
+   description must stay ≤132 characters or the upload is rejected.
+2. Dashboard → the existing item → Package → **Upload new package** →
+   `roar-kid-store.zip`.
+3. The item title follows the manifest name automatically ("Audiogram EQ"
+   → "Personal audio EQ" in 0.5.0). The summary, description, and
+   screenshots are dashboard fields — paste the refreshed EN and pt-BR
+   text from this file so the listing matches the new framing.
+4. 0.5.0 adds NO new permissions (`storage` and the host list are
+   unchanged; `web_accessible_resources` for the worklets is not a
+   permission), so no new justifications are needed and existing users get
+   no re-approval prompt. The Privacy-tab disclosures still hold as
+   written.
+5. Submit. Updates to an approved item with unchanged permissions
+   typically review faster than the initial submission; existing installs
+   auto-update once published.
+
+If a reviewer asks about 0.5.0: it is strictly more conservative than the
+approved 0.3.0 — the Child target is locked behind an audiologist-guidance
+attestation and lowers the output ceiling to −7 dBFS while active, the
+limiter clamps every ceiling request to ≤−1 dBFS (it can be lowered, never
+raised), level/dose readouts are suppressed until the user calibrates, and
+"Not a medical device" now appears in the manifest description itself.
 
 ## Test instructions (dashboard "Testing instructions" field)
 

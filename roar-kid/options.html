@@ -89,14 +89,22 @@
   </div>
 
   <h2>Import audiogram from photo</h2>
-  <p class="sub">Crop out any personally identifiable information before uploading —
-  the image is sent to the AI provider you select, and its use is subject to that
-  provider's terms of service and privacy policy.</p>
+  <p class="sub">On-device extraction is the default whenever this machine
+  supports it: the photo never leaves your computer. Sending it to a cloud
+  provider instead requires a key above <em>and</em> ticking the consent box
+  for each import. Crop out any personally identifiable information before
+  uploading — a cloud image is subject to that provider's terms of service
+  and privacy policy.</p>
   <div class="extract-controls">
     <input type="file" id="photo" accept="image/*" />
     <button id="extract">Extract thresholds</button>
     <span id="busy">reading chart…</span>
   </div>
+  <label class="sub" style="display:flex; gap:6px; align-items:baseline; margin-top:8px;">
+    <input type="checkbox" id="cloudConsent" />
+    <span>Send this photo to the cloud provider whose key is filled in above
+    (it leaves this device). Unticked, extraction stays on-device.</span>
+  </label>
   <div class="extract-controls" id="builtinRow" style="display:none; margin-top:8px;">
     <button id="extractBuiltin" class="ghost">Extract with Chrome's built-in AI</button>
   </div>
@@ -110,8 +118,13 @@
   <div id="preview">
     <table id="tbl"></table>
     <div class="note" id="meta"></div>
+    <div class="note" id="plaus" style="display:none; border-left: 3px solid var(--right-red);"></div>
+    <label style="display:flex; gap:6px; align-items:baseline; margin-top:10px;">
+      <input type="checkbox" id="reviewed" />
+      <span>I compared every value in this table against the paper report.</span>
+    </label>
     <div style="margin-top:10px; display:flex; gap:8px;">
-      <button id="apply">Apply to audiogram</button>
+      <button id="apply" disabled>Apply to audiogram</button>
       <button id="discard" class="ghost">Discard</button>
     </div>
     <p class="sub" style="margin-top:8px;">Applying is not final — open the
@@ -119,6 +132,87 @@
     model misread.</p>
   </div>
 
+  <h2>Loudness anchor — absolute level</h2>
+  <p class="sub">Until this step is done the whole system is
+  <strong>relative</strong>: gains are internally consistent, but no one
+  knows what level actually reaches the ear, so the popup shows no level or
+  dose numbers. The anchor ties digital level to a real-world loudness for
+  <em>this</em> output device. It is a rough self-report, not a
+  measurement — but it is grounded in your actual hardware.</p>
+  <ol class="sub" style="margin:0 0 10px; padding-left:20px;">
+    <li>Put on the headphones you normally use.</li>
+    <li>Press play — a steady 1&nbsp;kHz tone starts.</li>
+    <li>Adjust your <strong>system volume</strong> (not this page) until the
+    tone is as loud as someone talking to you across a table: comfortable,
+    clearly present, not loud.</li>
+    <li>Name the setup and save. Keep using that system-volume position —
+    the anchor is only valid for it.</li>
+  </ol>
+  <div class="extract-controls">
+    <button id="anchorTone" class="ghost">Play anchor tone</button>
+    <input id="anchorLabel" type="text" placeholder="e.g. laptop + wired headphones"
+      style="flex:1; padding:6px 8px; border:1px solid var(--grid); border-radius:6px; font:inherit;" />
+    <button id="anchorSave">Save anchor</button>
+  </div>
+  <div class="note" id="anchorStatus" style="margin-top:10px;"></div>
+  <div id="anchorList"></div>
+
+  <h2>Calibration — response shape</h2>
+  <p class="sub">These helpers correct the frequency <em>shape</em> of your
+  playback chain, not its absolute level (that is the anchor above). Two
+  tiers, both optional. Neither is clinical probe-microphone
+  verification.</p>
+
+  <div class="keyrow">
+    <label for="hpProfile">Headphones</label>
+    <select id="hpProfile">
+      <option value="none">no correction</option>
+      <option value="bass-heavy">closed consumer (bass-heavy)</option>
+      <option value="earbuds">small earbuds</option>
+    </select>
+    <span class="sub" style="flex:1;">generic average shapes, not measurements</span>
+  </div>
+
+  <p class="sub" style="margin-top:12px;"><strong>Tone match:</strong> use your
+  usual headphones at your usual volume. Play the 1&nbsp;kHz tone as the
+  anchor, then each other tone; drag its slider until it sounds equally
+  loud. The offsets become part of the correction the player applies.</p>
+  <div id="toneRows"></div>
+  <div style="display:flex; gap:8px; margin-top:8px;">
+    <button id="toneReset" class="ghost">Reset tone offsets</button>
+  </div>
+
+  <p class="sub" style="margin-top:12px;"><strong>Measurement-mic
+  correction:</strong> the repo's <span class="mono">calibrate_playback.py</span>
+  measures your actual playback response with a USB measurement mic and
+  writes a correction JSON — import it here.</p>
+  <div class="extract-controls">
+    <input type="file" id="micFile" accept="application/json,.json" />
+    <button id="micClear" class="ghost">Clear mic correction</button>
+    <span class="sub" id="micStatus"></span>
+  </div>
+
+  <h2>Child target — locked by default</h2>
+  <p class="sub">Regulatory and professional guidance is unambiguous that
+  self-fit amplification is designed and validated for adults. Fitting a
+  child depends on real-ear measurement that only a clinic can do, and a
+  child's smaller ear canal receives higher sound pressure from the very
+  same signal. The child target therefore stays locked unless an
+  audiologist has verified these settings for this specific child — and
+  even unlocked, it runs with an output ceiling 6&nbsp;dB below the adult
+  one.</p>
+  <label class="sub" style="display:flex; gap:6px; align-items:baseline;">
+    <input type="checkbox" id="childAttest" />
+    <span>An audiologist has reviewed this child's audiogram and verified
+    these settings for this child.</span>
+  </label>
+  <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+    <button id="childUnlock" disabled>Unlock child target</button>
+    <button id="childLock" class="ghost">Lock again</button>
+    <span class="sub" id="childStatus"></span>
+  </div>
+
+<script src="dsp.js"></script>
 <script src="options.js"></script>
 </body>
 </html>

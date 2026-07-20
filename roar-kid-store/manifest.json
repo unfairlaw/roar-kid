@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Roar, kid! — Audiogram EQ for YouTube, Netflix & Prime Video",
-  "version": "0.3.0",
-  "description": "Audiogram-driven multiband compression for YouTube, Netflix & Prime Video. Per-ear prescriptive-style gain with output limiting.",
+  "name": "Roar, kid! — Personal audio EQ for YouTube, Netflix & Prime Video",
+  "version": "0.5.0",
+  "description": "Personal audio comfort EQ: shapes streaming sound to your audiogram, per ear, with an always-on limiter. Not a medical device.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://www.youtube.com/*",
@@ -25,10 +25,27 @@
         "https://www.amazon.com/gp/video/*",
         "https://www.amazon.com/Amazon-Video/*"
       ],
-      "js": ["content.js"],
+      "js": ["dsp.js", "content.js"],
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["worklets/wdrc.js", "worklets/limiter.js"],
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://www.netflix.com/*",
+        "https://www.primevideo.com/*",
+        "https://www.amazon.com/*"
+      ]
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "roar-kid@unfairlaw.dev",
+      "strict_min_version": "128.0"
+    }
+  },
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

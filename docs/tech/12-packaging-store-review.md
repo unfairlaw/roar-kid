@@ -26,8 +26,8 @@ rejects `_`-prefixed names.)
 **Hard field limits, discovered by hitting them.**
 | Field | Limit | This project's encounter |
 |---|---|---|
-| manifest `description` | 132 chars | bounced at 152, rewritten to 128 |
-| listing summary | 132 chars | budgeted from the start (125/129) |
+| manifest `description` | 132 chars | hit **twice**: 152 at 0.3.0, then 156 again at 0.5.0 after the wellness reframe (now 126) |
+| listing summary | 132 chars | budgeted from the start (126/130) |
 | test instructions | 500 chars | long version kept for reviewer email |
 
 Also: dashboard text fields keep newlines *literally* — paste-ready text
@@ -57,6 +57,25 @@ licensed film (Big Buck Bunny) on YouTube — no real patient data (plot
 throwaway curves), and no personal traces (profile avatars cropped out).
 The name/icon carry their own diligence: originality checked against the
 store and USPTO, domain availability, zero game/film references.
+
+**Updates over a live listing (learned when 0.3.0 was approved,
+2026-07-20).** Shipping a new version to an already-published item is a
+different, smaller ritual than first submission, with its own rules:
+- the manifest version must be *strictly greater* than the live one;
+- only the item **title** follows the uploaded manifest; summary,
+  description, and screenshots are dashboard fields that silently keep
+  their old text — rename in the manifest and you must re-paste the
+  listing or ship a mismatched storefront;
+- unchanged permissions are the fast path: no new justifications, no
+  re-approval prompt shown to existing users, typically a quicker review.
+  Adding a permission in an update triggers both — which is a reason to
+  design permissions maximally on first submission (as this project did
+  with all four AI hosts) rather than trickling them in;
+- existing installs auto-update after approval, so a broken update
+  *reaches everyone*; the release gate (real-listening test before merge)
+  matters more once there are users.
+The paste-ready update runbook lives in `STORE_SUBMISSION.md`
+("Updating a published release").
 
 **Localized listings ≠ separate stores.** One global store, one review;
 pt-BR is a second *listing language* added in the dashboard, shown

@@ -85,6 +85,38 @@ def fill_gaps(vals: list[float | None]) -> tuple[list[float], list[int]]:
     return out, inferred
 
 
+def plausibility_warnings(right: list[float], left: list[float]) -> list[str]:
+    """Physiological plausibility screen over the filled threshold pairs.
+
+    Flags the misread patterns documented in the LLM-audiogram literature
+    (fabricated flat traces, symbol/ear swaps, gridline slips). Warnings
+    are for the human reviewer — nothing is auto-corrected.
+    """
+    hz = lambda f: f"{f // 1000} kHz" if f >= 1000 else f"{f} Hz"  # noqa: E731
+    warnings: list[str] = []
+    for i, f in enumerate(BANDS_HZ):
+        if abs(right[i] - left[i]) > 40:
+            warnings.append(
+                f"left/right differ by {abs(right[i] - left[i]):.0f} dB at "
+                f"{hz(f)} — check the symbols weren't swapped"
+            )
+    for label, vals in (("right", right), ("left", left)):
+        for i in range(1, len(vals)):
+            if abs(vals[i] - vals[i - 1]) > 30:
+                warnings.append(
+                    f"steep {abs(vals[i] - vals[i - 1]):.0f} dB jump between "
+                    f"{hz(BANDS_HZ[i - 1])} and {hz(BANDS_HZ[i])} "
+                    f"({label} ear) — worth a second look"
+                )
+    both = right + left
+    if all(v == both[0] for v in both):
+        warnings.append(
+            f"every value reads {both[0]:.0f} dB HL — perfectly flat "
+            "identical ears are a classic misread"
+        )
+    return warnings
+
+
 class Audiogram(BaseModel):
     """Extracted audiogram. Right ear = red O symbols, left ear = blue X."""
 
@@ -183,6 +215,7 @@ def main() -> int:
 
     right, right_inferred = fill_gaps(result.right.thresholds_db_hl)
     left, left_inferred = fill_gaps(result.left.thresholds_db_hl)
+    warnings = plausibility_warnings(right, left)
     payload = {
         "right": right,
         "left": left,
@@ -193,11 +226,14 @@ def main() -> int:
                 "right": [BANDS_HZ[i] for i in right_inferred],
                 "left": [BANDS_HZ[i] for i in left_inferred],
             },
+            "plausibility_warnings": warnings,
             "bands_hz": BANDS_HZ,
             "provider": args.provider,
             "review_required": True,  # always confirm on the audiogram canvas
         },
     }
+    for w in warnings:
+        print(f"warning: {w}", file=sys.stderr)
     text = json.dumps(payload, indent=2)
     if args.out:
         args.out.write_text(text)

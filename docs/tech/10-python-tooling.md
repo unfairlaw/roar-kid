@@ -42,6 +42,25 @@ Auto-scoring for chosen-file runs checks results against a local rubric
 that stays gitignored — real-report ground truth never enters the public
 repo.
 
+**The calibration measurer** (`roar-kid/calibrate_playback.py`, added in
+v1). Plays a tone at each of the 8 audiometric bands while recording
+through a measurement microphone placed at ear position (numpy +
+sounddevice), then writes the per-band correction relative to 1 kHz as
+JSON that the options page imports ("Measurement-mic correction",
+clamped ±12 dB on import). It corrects the *shape* of the playback
+chain's frequency response — the assisted tier between "trust a headphone
+preset" and clinical probe-mic verification, which it explicitly is not.
+Python again because the browser can't be trusted to loop audio out and
+back through arbitrary devices with known levels.
+
+**The test-harness server** (`tests/serve.py`). The DSP test suite runs
+real `OfflineAudioContext` renders in a page (`tests/test.html`), so it
+needs an origin — a stdlib `http.server` subclass that also accepts the
+results as a POST and writes `tests/results.json`. Run it, point headless
+Chrome at it in the background, poll for the file: that dance exists
+because `--virtual-time-budget` kills pending offline renders (see the
+[Web Audio doc](02-web-audio-api.md)).
+
 **The `__pycache__` trap.** Running any Python in `roar-kid/` creates
 `__pycache__/`, and the Chrome Web Store **rejects archives containing
 any file or directory whose name starts with `_`**. Defenses layered

@@ -41,9 +41,14 @@ exchanges JSON with AI APIs and never executes any of it, which is exactly
 the line the store's "are you using remote code?" question probes.
 
 **`web_accessible_resources`, messaging, `chrome.runtime.getURL`.** Files
-inside the package are addressable by URL. This project uses
-`chrome.runtime.getURL("prompt.txt")` to load its prompts — a *file read*,
-not a network fetch, an important distinction in store review.
+inside the package are addressable by URL. Extension pages can read any
+packaged file that way (`chrome.runtime.getURL("prompt.txt")` — a *file
+read*, not a network fetch, an important distinction in store review).
+But when the *page's* machinery must fetch the file — as with
+`audioWorklet.addModule()` loading the DSP worklets from a content
+script — the manifest must list those files under
+`web_accessible_resources`, scoped to the streaming-site origins. That is
+the only reason the key exists in this manifest.
 
 ## How Roar, kid! uses it
 
@@ -57,16 +62,24 @@ not a network fetch, an important distinction in store review.
   `scripting`, no `activeTab`: nothing else was needed, and every
   permission you don't request is a review question you never get asked.
 - `host_permissions` — streaming sites + four AI API origins.
+- `web_accessible_resources` — the two worklet files, for the reason above.
+- `browser_specific_settings.gecko` — an extension ID + minimum version
+  for a possible future Firefox port; Chrome ignores the key.
 
-Notable absences: no background worker, no messaging at all (state flows
-through `chrome.storage.onChanged` — see the [storage doc](05-chrome-storage.md)).
+Notable absences: no background worker, and *settings* never travel by
+message — they flow through `chrome.storage.onChanged` (see the
+[storage doc](05-chrome-storage.md)). The one message that does exist is a
+popup → content-script poll (`chrome.tabs.sendMessage`, type `roar-dose`)
+for the live level/dose readout — ephemeral telemetry, queried on demand,
+which is exactly the kind of state storage would be wrong for.
 
 ## Pitfalls learned here
 
 - The store rejects archives containing files whose names start with `_`
   (`__pycache__/` — created just by running the Python CLI in the folder).
 - The manifest `description` has a 132-character limit that is only
-  enforced at upload time (ours was 152 and bounced).
+  enforced at upload time — this project hit it twice (152 chars at 0.3.0,
+  156 at 0.5.0 after the wellness reframe; both rewritten under the cap).
 - One media element can host only one `MediaElementSource` *ever*; a second
   extension capturing the same `<video>` throws — the content script
   crash-guards and backs off rather than retrying (`content.js:134`).
