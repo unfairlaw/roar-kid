@@ -104,7 +104,14 @@ delay, WDRC block processing, and the limiter's 3 ms look-ahead — is
 measured by the test harness at ~3.3 ms (energy centroid of the impulse
 response at 48 kHz), comfortably inside the ITU lip-sync detectability
 budget for streaming video; there is no live-microphone path, so latency,
-not feedback, is the only timing concern.
+not feedback, is the only timing concern. That offline figure is
+cross-checked against a real, playing `<video>` element: the harness's T7
+plays a synthetic clip through the actual production graph and through an
+unprocessed baseline in a live AudioContext, using
+`requestVideoFrameCallback` and `getOutputTimestamp` to compare each
+against genuine video-frame display timing, and asserts the processing-
+added delta — not just the synthetic impulse response — stays inside the
+same lip-sync budget.
 
 The reason the design uses multiband compression rather than static
 parametric EQ is loudness recruitment: a compressed usable dynamic range

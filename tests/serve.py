@@ -3,8 +3,12 @@ results POST, so the DSP tests can run headlessly.
 
     python3 tests/serve.py [port]          # from the repo root
     google-chrome --headless=new --no-sandbox \
+        --autoplay-policy=no-user-gesture-required \
         http://127.0.0.1:8471/tests/test.html
     # results land in tests/results.json when the page finishes
+
+--autoplay-policy is required by T7 (real A/V sync), which plays an
+unmuted <video> element with no user gesture; harmless for the other tests.
 
 Plain `python3 -m http.server` works too for interactive runs — the POST
 then 501s harmlessly and results stay on the page.

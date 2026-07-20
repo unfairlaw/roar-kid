@@ -10,13 +10,24 @@
 //       more gain than a loud one (that's the whole point of WDRC).
 //   T4  Limiter: worst-case input (full-scale square +12 dB, impulse
 //       bursts) must never produce a sample above the ceiling. Sample-
-//       accurate assertion. Also: the child ceiling holds, and a message
-//       trying to RAISE the ceiling is clamped to the −1 dBFS guarantee.
+//       accurate assertion. Also: the child ceiling holds, a message
+//       trying to RAISE the ceiling is clamped to the −1 dBFS guarantee,
+//       and the legacy DynamicsCompressorNode fallback graph (used when
+//       AudioWorklet fails to load) stays within a bounded overshoot of
+//       its own threshold under the same worst-case input (SR-1).
 //   T5  Calibration round-trip: known shape corrections in → the expected
 //       combined, clamped per-band offsets out (NFR-T.4).
 //   T6  End-to-end latency of the full chain (crossover + WDRC + limiter
 //       look-ahead), measured and asserted inside the lip-sync budget
 //       (FR-2.5 / NFR-T.3).
+//   T7  Real A/V sync: a live (non-Offline) AudioContext plays an actual
+//       <video> element through the real production graph and through an
+//       unprocessed baseline, using requestVideoFrameCallback +
+//       getOutputTimestamp to compare each against genuine video-frame
+//       display timing. The DELTA between processed and baseline isolates
+//       what the extension's own processing adds, canceling out the test
+//       fixture's own encode jitter (FR-2.5 / NFR-T.3, the part T6's
+//       OfflineAudioContext measurement can't reach).
 
 const DSP = globalThis.RoarDSP;
 const FS = 48000;
@@ -253,6 +264,34 @@ async function testWdrcCompression() {
 
 // -------------------------------------------------- T4: limiter ceiling
 
+// Worst case: full-scale square at 97 Hz, boosted +12 dB, with periodic
+// single-sample spikes at ±4 on top — transients a lagging compressor
+// would let through. Shared by the worklet limiter (T4a-c) and the legacy
+// DynamicsCompressorNode fallback (T4d) so both face the identical input.
+function worstCaseBuffer(ctx, len) {
+  const buf = ctx.createBuffer(2, len, FS);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < len; i++) {
+      d[i] = Math.sign(Math.sin((2 * Math.PI * 97 * i) / FS)) * 4;
+      if (i % 4801 === 0) d[i] = i % 2 ? -4 : 4;
+    }
+  }
+  return buf;
+}
+
+function peakOf(buf, len) {
+  let peak = 0;
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < len; i++) {
+      const a = Math.abs(d[i]);
+      if (a > peak) peak = a;
+    }
+  }
+  return peak;
+}
+
 // Worst-case peak through the limiter, optionally with a ceilingDb set
 // via processorOptions (the child-mode reduced ceiling, or an attempt to
 // raise it that the worklet must clamp). Construction-time options rather
@@ -262,19 +301,7 @@ async function worstCasePeak(ceilingMsgDb) {
   const len = FS; // 1 s
   const ctx = new OfflineAudioContext(2, len, FS);
   await ctx.audioWorklet.addModule("../roar-kid/worklets/limiter.js");
-
-  // Worst case: full-scale square at 97 Hz, boosted +12 dB, with periodic
-  // single-sample spikes at ±4 on top — transients a lagging compressor
-  // would let through.
-  const buf = ctx.createBuffer(2, len, FS);
-  for (let c = 0; c < 2; c++) {
-    const d = buf.getChannelData(c);
-    for (let i = 0; i < len; i++) {
-      d[i] = Math.sign(Math.sin((2 * Math.PI * 97 * i) / FS)) * 4;
-      if (i % 4801 === 0) d[i] = i % 2 ? -4 : 4;
-    }
-  }
-  const src = new AudioBufferSourceNode(ctx, { buffer: buf });
+  const src = new AudioBufferSourceNode(ctx, { buffer: worstCaseBuffer(ctx, len) });
   const limiter = new AudioWorkletNode(ctx, "roar-limiter", {
     numberOfInputs: 1,
     numberOfOutputs: 1,
@@ -287,15 +314,30 @@ async function worstCasePeak(ceilingMsgDb) {
   src.connect(limiter).connect(ctx.destination);
   src.start();
   const out = await ctx.startRendering();
-  let peak = 0;
-  for (let c = 0; c < 2; c++) {
-    const d = out.getChannelData(c);
-    for (let i = 0; i < len; i++) {
-      const a = Math.abs(d[i]);
-      if (a > peak) peak = a;
-    }
-  }
-  return peak;
+  return peakOf(out, len);
+}
+
+// SR-1 gap: the legacy DynamicsCompressorNode fallback (content.js
+// buildLegacyGraph, used only when AudioWorklet fails to load) is, by its
+// own code comment, "not a true brickwall" — no look-ahead, finite 20:1
+// ratio, so a fast transient can overshoot the -3 dBFS threshold before the
+// detector reacts. Mirrors content.js's exact compressor settings so this
+// tracks the real fallback, not an idealized one.
+async function worstCasePeakLegacy() {
+  const len = FS;
+  const ctx = new OfflineAudioContext(2, len, FS);
+  const src = new AudioBufferSourceNode(ctx, { buffer: worstCaseBuffer(ctx, len) });
+  const limiter = new DynamicsCompressorNode(ctx, {
+    threshold: -3,
+    knee: 0,
+    ratio: 20,
+    attack: 0.001,
+    release: 0.05,
+  });
+  src.connect(limiter).connect(ctx.destination);
+  src.start();
+  const out = await ctx.startRendering();
+  return peakOf(out, len);
 }
 
 async function testLimiter() {
@@ -323,6 +365,22 @@ async function testLimiter() {
     "T4c ceiling cannot be raised above −1 dBFS by any message",
     raisedPeak <= adult + 1e-6,
     `peak ${raisedPeak.toFixed(6)} after posting ceilingDb:+6`
+  );
+
+  // T4d: the legacy fallback (SR-1 gap closed). "Not a true brickwall, but
+  // the fallback never runs unlimited" (content.js) means bounded
+  // overshoot above its -3 dBFS threshold, not zero overshoot — the bound
+  // below is the documented acceptable degradation for the degraded path,
+  // not an aspiration to worklet-level precision.
+  const legacyThreshold = Math.pow(10, -3 / 20);
+  const legacyMarginDb = 4;
+  const legacyBound = Math.pow(10, (-3 + legacyMarginDb) / 20);
+  const legacyPeak = await worstCasePeakLegacy();
+  check(
+    "T4d legacy DynamicsCompressorNode fallback: worst-case overshoot stays bounded",
+    legacyPeak <= legacyBound,
+    `peak ${legacyPeak.toFixed(6)} (${(20 * Math.log10(legacyPeak)).toFixed(1)} dBFS) ` +
+      `vs threshold ${legacyThreshold.toFixed(6)} (-3 dBFS), bound +${legacyMarginDb} dB`
   );
 }
 
@@ -365,6 +423,222 @@ async function testLatency() {
   );
 }
 
+// -------------------------------------------------- T7: real A/V sync
+
+// Sample-accurate click detector: an inline AudioWorklet module (built at
+// test time, not shipped) that reports the exact context-time a click
+// crosses the threshold, then cools down so it can catch several clicks in
+// one pass.
+const CLICK_DETECTOR_CODE = `
+class ClickDetector extends AudioWorkletProcessor {
+  constructor() { super(); this.cooldown = 0; }
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (ch) {
+      for (let i = 0; i < ch.length; i++) {
+        if (this.cooldown > 0) { this.cooldown--; continue; }
+        if (Math.abs(ch[i]) > 0.05) {
+          this.port.postMessage({ t: currentTime + i / sampleRate });
+          this.cooldown = Math.round(sampleRate * 0.2);
+        }
+      }
+    }
+    return true;
+  }
+}
+registerProcessor("click-detector", ClickDetector);
+`;
+
+// Builds a short synthetic clip in-browser: a canvas flashing white paired
+// with sample-accurate audio clicks (scheduled via AudioContext, not
+// setTimeout) at the same nominal instants, muxed live via MediaRecorder.
+// The clip's OWN internal a/v alignment has up to ~1 video-frame (33 ms
+// @30fps) of canvas/MediaRecorder jitter -- that's fine, because T7 only
+// measures the DELTA the extension's graph adds relative to a baseline
+// pass through the SAME fixture, not the fixture's absolute accuracy.
+async function buildSyncFixture() {
+  const W = 64, H = 64, FPS = 30, DUR_S = 1.8;
+  const clickTimes = [0.4, 0.9, 1.4];
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const cctx = canvas.getContext("2d", { alpha: false });
+  cctx.fillStyle = "black";
+  cctx.fillRect(0, 0, W, H);
+  const vStream = canvas.captureStream(FPS);
+
+  const actx = new AudioContext();
+  const dest = actx.createMediaStreamDestination();
+  const t0Ctx = actx.currentTime;
+  clickTimes.forEach((t) => {
+    const osc = new OscillatorNode(actx, { type: "square", frequency: 2000 });
+    const g = new GainNode(actx, { gain: 0 });
+    g.gain.setValueAtTime(0.9, t0Ctx + t);
+    g.gain.setValueAtTime(0, t0Ctx + t + 0.03);
+    osc.connect(g).connect(dest);
+    osc.start(t0Ctx + t);
+    osc.stop(t0Ctx + t + 0.05);
+  });
+
+  const combined = new MediaStream([
+    ...vStream.getVideoTracks(),
+    ...dest.stream.getAudioTracks(),
+  ]);
+  const mimeType =
+    ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm"].find(
+      (m) => MediaRecorder.isTypeSupported(m)
+    ) || "";
+  const rec = new MediaRecorder(combined, mimeType ? { mimeType } : undefined);
+  const chunks = [];
+  rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  const stopped = new Promise((resolve) => (rec.onstop = resolve));
+
+  const t0Wall = performance.now();
+  rec.start();
+  let flashIdx = 0;
+  function draw(now) {
+    const t = (now - t0Wall) / 1000;
+    const flashing = flashIdx < clickTimes.length && Math.abs(t - clickTimes[flashIdx]) < 0.05;
+    cctx.fillStyle = flashing ? "white" : "black";
+    cctx.fillRect(0, 0, W, H);
+    if (flashing && t > clickTimes[flashIdx]) flashIdx++;
+    if (t < DUR_S) requestAnimationFrame(draw);
+    else rec.stop();
+  }
+  requestAnimationFrame(draw);
+  await stopped;
+  await actx.close();
+
+  return { blob: new Blob(chunks, { type: "video/webm" }), clickTimes };
+}
+
+function loadFixtureVideo(blob) {
+  const video = document.createElement("video");
+  video.muted = false;
+  video.playsInline = true;
+  video.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px;";
+  document.body.appendChild(video);
+  video.src = URL.createObjectURL(blob);
+  return new Promise((resolve, reject) => {
+    video.onloadedmetadata = () => resolve(video);
+    video.onerror = () => reject(new Error("fixture video failed to load"));
+  });
+}
+
+// Plays `video` once through either the real production graph
+// (crossover + WDRC + limiter, mirroring content.js's wire()) or a direct
+// bypass (mirroring content.js's disabled-state routing), tapping the
+// result with the click detector. Returns each detected click's wall-clock
+// arrival, computed via getOutputTimestamp's context-time/performance-time
+// correspondence, matched to the nearest real video frame's
+// requestVideoFrameCallback expectedDisplayTime (also wall-clock).
+async function measureAvOffsets(video, clickTimes, processed) {
+  const ctx = new AudioContext();
+  const source = ctx.createMediaElementSource(video);
+  let tap = source;
+  if (processed) {
+    await ctx.audioWorklet.addModule("../roar-kid/worklets/wdrc.js");
+    await ctx.audioWorklet.addModule("../roar-kid/worklets/limiter.js");
+    const input = new GainNode(ctx, { gain: 1 });
+    source.connect(input);
+    const bands = DSP.buildCrossoverBank(ctx, input);
+    const wdrc = new AudioWorkletNode(ctx, "roar-wdrc", {
+      numberOfInputs: DSP.BANDS_HZ.length,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    });
+    bands.forEach((b, i) => b.connect(wdrc, 0, i));
+    const limiter = new AudioWorkletNode(ctx, "roar-limiter", {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      channelCount: 2,
+      channelCountMode: "explicit",
+    });
+    wdrc.connect(limiter);
+    tap = limiter;
+  }
+
+  const detectorUrl = URL.createObjectURL(
+    new Blob([CLICK_DETECTOR_CODE], { type: "application/javascript" })
+  );
+  await ctx.audioWorklet.addModule(detectorUrl);
+  const detector = new AudioWorkletNode(ctx, "click-detector");
+  tap.connect(detector);
+  tap.connect(ctx.destination); // must reach destination to be pulled
+
+  const audioHits = [];
+  detector.port.onmessage = (e) => audioHits.push(e.data.t);
+
+  const videoFrames = [];
+  function onFrame(_now, metadata) {
+    videoFrames.push({
+      mediaTime: metadata.mediaTime,
+      expectedDisplayTime: metadata.expectedDisplayTime,
+    });
+    if (!video.ended) video.requestVideoFrameCallback(onFrame);
+  }
+  video.requestVideoFrameCallback(onFrame);
+
+  video.currentTime = 0;
+  await video.play();
+  await new Promise((resolve) => {
+    video.onended = resolve;
+    setTimeout(resolve, 3000); // safety timeout, clip is 1.8 s
+  });
+
+  const ts = ctx.getOutputTimestamp();
+  const outputLatencyS = ctx.outputLatency || 0;
+  await ctx.close();
+
+  return clickTimes.map((ct) => {
+    let bestFrame = null;
+    let bestDist = Infinity;
+    for (const f of videoFrames) {
+      const d = Math.abs(f.mediaTime - ct);
+      if (d < bestDist) {
+        bestDist = d;
+        bestFrame = f;
+      }
+    }
+    // Pick the audio hit closest to this click's nominal schedule (by
+    // detection order, since hits and clickTimes are both chronological).
+    const idx = clickTimes.indexOf(ct);
+    const audioCtxTime = audioHits[idx];
+    if (audioCtxTime === undefined || !bestFrame) return null;
+    const audioWallMs = ts.performanceTime + (audioCtxTime - ts.contextTime + outputLatencyS) * 1000;
+    return audioWallMs - bestFrame.expectedDisplayTime; // ms; +ve = audio late
+  });
+}
+
+async function testAvSyncReal() {
+  const { blob, clickTimes } = await buildSyncFixture();
+
+  const baselineVideo = await loadFixtureVideo(blob);
+  const baselineOffsets = await measureAvOffsets(baselineVideo, clickTimes, false);
+  baselineVideo.remove();
+
+  const processedVideo = await loadFixtureVideo(blob);
+  const processedOffsets = await measureAvOffsets(processedVideo, clickTimes, true);
+  processedVideo.remove();
+
+  // The delta between the two passes through the identical fixture
+  // cancels the fixture's own encode jitter and shared headless output
+  // latency, isolating what roar-kid's own processing graph adds.
+  const deltas = [];
+  for (let i = 0; i < clickTimes.length; i++) {
+    if (baselineOffsets[i] == null || processedOffsets[i] == null) continue;
+    deltas.push(processedOffsets[i] - baselineOffsets[i]);
+  }
+  check(
+    "T7 real A/V sync: processing-added delay stays inside the lip-sync budget",
+    deltas.length > 0 && deltas.every((d) => d >= -15 && d <= 45),
+    `n=${deltas.length}/${clickTimes.length} deltas=[${deltas.map((d) => d.toFixed(1)).join(", ")}] ms ` +
+      `(audio-late positive; budget -15..+45 ms, ITU-R BT.1359)`
+  );
+}
+
 // ------------------------------------------------------------------ run
 
 (async () => {
@@ -375,6 +649,7 @@ async function testLatency() {
     await testWdrcCompression();
     await testLimiter();
     await testLatency();
+    await testAvSyncReal();
   } catch (e) {
     check("harness completed without exceptions", false, String(e));
     console.error(e);
