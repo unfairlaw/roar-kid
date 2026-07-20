@@ -104,15 +104,15 @@ review rejects remotely hosted code.
 
 ## Assets
 
-Screenshots: three 1280×800 PNGs in `store-screenshots/`, refreshed
-2026-07-19 to the **0.3.0** UI (popup with the AI-import link and 15 dB
-shaded band; options page with the one-key provider flow and the Chrome
-built-in AI option; theater-mode YouTube with the popup open). All plotted
-curves are throwaway data, and no third-party brand imagery is in frame.
-STALE for 0.5.0: the popup gained the target selector and level readout,
-and the options page gained calibration — refresh before or shortly after
-the 0.5.0 upload via `store-screenshots/tools/` + the recipe in
-`SCREENSHOTS.md`.
+Screenshots: four 1280×800 PNGs in `store-screenshots/`, refreshed
+2026-07-20 for **0.5.0** (`tools/retake_v050.py`): 01 popup with target
+selector + WDRC toggle, 02 options keys + photo import, 04 options
+loudness-anchor section (new). All plotted curves are throwaway data, no
+third-party brand imagery in frame. Dashboard order: 03, 01, 02, 04.
+Remaining gap: 03 (the YouTube hero shot) still shows the 0.3.0 popup —
+it needs the manual toolbar-popup retake in `SCREENSHOTS.md`; fine to
+ship as-is and swap later (listing-image edits don't trigger package
+re-review).
 Optional small promo tile 440×280 — not made.
 
 ## Submission steps (first-time — done 2026-07-19, kept for reference)

@@ -11,9 +11,10 @@ future-you reusing the technique on another project (bottom half).
 
 | File | Content | Status |
 |------|---------|--------|
-| `01-popup-audiogram-1280x800.png` | Popup with a plausible mild sloping-loss audiogram plotted (both ears) | ✅ done |
-| `02-options-import-1280x800.png` | Options page: BYOK keys + photo import, English UI | ✅ done |
-| `03-youtube-popup-1280x800.png` | YouTube (theater mode, Big Buck Bunny title card) with the popup open over it | ✅ done (taken manually 2026-07-19, cropped to 1280×800) |
+| `01-popup-audiogram-1280x800.png` | Popup with a plausible mild sloping-loss audiogram, target selector (comfort/adult/child), WDRC speed toggle | ✅ refreshed 2026-07-20 for 0.5.0 (`tools/retake_v050.py`) |
+| `02-options-import-1280x800.png` | Options page, keys + photo-import section (on-device default, cloud consent checkbox) | ✅ refreshed 2026-07-20 for 0.5.0 — now a section crop; the full page grew too tall to fit one frame legibly |
+| `03-youtube-popup-1280x800.png` | YouTube (theater mode, Big Buck Bunny) with the popup open over it | ⚠️ still shows the **0.3.0** popup (no target selector) — manual retake needed, steps below |
+| `04-options-anchor-1280x800.png` | Options page, loudness-anchor section ("relative until anchored" note visible) | ✅ new 2026-07-20 (`tools/retake_v050.py`) |
 
 ## Taking screenshot 3 manually
 
@@ -38,7 +39,13 @@ trivial:
    player both visible.
 6. Save as `store-screenshots/03-youtube-popup-1280x800.png`.
 
-Dashboard accepts up to 5 screenshots; order them 03 (hero), 01, 02.
+Dashboard accepts up to 5 screenshots; order them 03 (hero), 01, 02, 04.
+
+For automated retakes after a UI change, `tools/retake_v050.py` is the
+current script: seeds the 0.5.0 settings shape (`redFlagsAck: true` so the
+first-run notice doesn't cover the chart), captures popup + options, and
+composes 01, 02, and 04 (the options page is section-cropped — as one
+frame the full page scales to illegibility).
 
 ---
 
