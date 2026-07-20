@@ -95,11 +95,24 @@ d.rectangle([x - 1, y - 1, x + card.width, y + card.height], outline=(216, 213, 
 canvas.save(OUT / "01-popup-audiogram-1280x800.png")
 print("popup composed:", card.size)
 
-# 02 options: fit the full page into the frame
-opt = trim_to_content(Image.open(RAW / "options_v050.png").convert("RGB"), pad=48)
-canvas = Image.new("RGB", (1280, 800), PAPER)
-scale = min(1280 / opt.width, 800 / opt.height)
-fit = opt.resize((round(opt.width * scale), round(opt.height * scale)), Image.LANCZOS)
-canvas.paste(fit, ((1280 - fit.width) // 2, (800 - fit.height) // 2))
-canvas.save(OUT / "02-options-import-1280x800.png")
-print("options composed:", fit.size)
+# 02/04/05 options: the full page is too tall to fit one frame legibly,
+# so each shot is a section crop (raw y-coordinates at 2× device scale;
+# re-measure if the options layout changes).
+def trim_h(img, pad=48):
+    base = Image.new("RGB", img.size, PAPER)
+    l, _, r, _ = ImageChops.difference(img, base).getbbox()
+    return img.crop((max(0, l - pad), 0, min(img.width, r + pad), img.height))
+
+def compose_section(full, y0, y1, name):
+    crop = trim_h(full.crop((0, y0, full.width, y1)))
+    canvas = Image.new("RGB", (1280, 800), PAPER)
+    scale = min(1280 / crop.width, 800 / crop.height) * 0.97
+    fit = crop.resize((round(crop.width * scale), round(crop.height * scale)), Image.LANCZOS)
+    canvas.paste(fit, ((1280 - fit.width) // 2, (800 - fit.height) // 2))
+    canvas.save(OUT / name)
+    print(name, fit.size)
+
+opt = Image.open(RAW / "options_v050.png").convert("RGB")
+compose_section(opt, 0, 1200, "02-options-import-1280x800.png")       # keys + photo import
+compose_section(opt, 1210, 1900, "04-options-anchor-1280x800.png")    # loudness anchor
+compose_section(opt, 1935, 3330, "05-options-calibration-1280x800.png")  # response shape + mic correction

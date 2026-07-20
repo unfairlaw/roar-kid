@@ -104,11 +104,13 @@ review rejects remotely hosted code.
 
 ## Assets
 
-Screenshots: four 1280×800 PNGs in `store-screenshots/`, refreshed
+Screenshots: five 1280×800 PNGs in `store-screenshots/`, refreshed
 2026-07-20 for **0.5.0** (`tools/retake_v050.py`): 01 popup with target
 selector + WDRC toggle, 02 options keys + photo import, 04 options
-loudness-anchor section (new). All plotted curves are throwaway data, no
-third-party brand imagery in frame. Dashboard order: 03, 01, 02, 04.
+loudness-anchor section (new), 05 options calibration/response-shape
+section with the mic-correction import (new). All plotted curves are
+throwaway data, no third-party brand imagery in frame. Dashboard order:
+03, 01, 02, 04, 05 — all five slots used.
 Remaining gap: 03 (the YouTube hero shot) still shows the 0.3.0 popup —
 it needs the manual toolbar-popup retake in `SCREENSHOTS.md`; fine to
 ship as-is and swap later (listing-image edits don't trigger package
