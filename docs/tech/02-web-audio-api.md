@@ -5,12 +5,13 @@ Part of the [technology study map](../../TECHNOLOGIES.md).
 ## What it is
 
 The browser's built-in DSP engine. You construct a *graph* of audio nodes —
-sources, filters, compressors, gains — connect them once, and the graph then
-runs on a dedicated real-time audio thread. JavaScript never touches audio
-samples here; it only wires and parameterizes nodes. That split (config on
-the main thread, processing on the audio thread) is the single most
-important mental model, and `content.js:8` states it as a comment for
-Python-minded readers.
+sources, filters, gains, worklets — connect them once, and the graph then
+runs on a dedicated real-time audio thread. Main-thread JavaScript only
+wires and parameterizes nodes; the one place JS *does* touch samples is an
+`AudioWorkletProcessor`, a class you register that the audio thread calls
+per 128-sample block. Since the v1 rebuild, this project's actual DSP —
+compression and limiting — lives in two such worklets, with the graph
+around them doing the splitting and summing.
 
 ## Core concepts
 
@@ -20,75 +21,113 @@ Python-minded readers.
 |------|-----------|
 | `AudioContext` | The graph's container and clock. One per wired video. |
 | `MediaElementAudioSourceNode` | Captures a `<video>`'s audio into the graph. **One per element, ever.** |
-| `GainNode` | Volume as a linear multiplier; also used as a channel-forcing pass-through and as per-band makeup gain. |
+| `GainNode` | Volume as a linear multiplier; also a channel-forcing pass-through (upmix, per-ear mono). |
 | `ChannelSplitterNode` / `ChannelMergerNode` | Break stereo into per-ear mono chains and reassemble. |
-| `BiquadFilterNode` (bandpass) | One per band per ear — the filterbank. |
-| `DynamicsCompressorNode` | Twice: per-band WDRC, and the master limiter. |
+| `IIRFilterNode` | The LR4 crossover sections, from explicit RBJ-cookbook coefficients (`dsp.js:66`). |
+| `AudioWorkletNode` | Three per graph: one WDRC per ear (`worklets/wdrc.js`) and the output limiter (`worklets/limiter.js`). |
+| `DynamicsCompressorNode` | **Fallback graph only** — used when `addModule` fails (`content.js:231`). |
 
 **Decibels vs. linear gain.** Audio nodes take linear multipliers; humans
-and audiograms speak dB. The conversion is `10^(dB/20)` (`content.js:74`).
+and audiograms speak dB. The conversion is `10^(dB/20)` (`content.js:70`).
 20, not 10, because amplitude squares into power.
 
-**Biquad Q and bandwidth.** A bandpass biquad is defined by center
-frequency and Q (center ÷ bandwidth). Because the 8 clinical bands are not
-evenly spaced (octaves plus 3k and 6k), each band computes its own Q from
-the *geometric means* to its neighbors (`content.js:19`) so the filters
-overlap evenly. Geometric, not arithmetic, because frequency perception is
-logarithmic.
+**Crossover, not parallel bandpasses.** v0 split the signal with 8 parallel
+bandpass biquads; summing overlapping bandpasses does not reconstruct the
+input (phase ripple), which forced true-bypass workarounds. v1 replaces it
+with a cascaded **Linkwitz-Riley 4th-order (LR4) crossover**
+(`dsp.js:95`): at each split, LP² and HP² sections whose outputs sum to an
+allpass — flat magnitude by construction, asserted by the test suite.
+Crossover points sit at the geometric means between adjacent audiometric
+bands (`dsp.js:20`). True bypass when disabled is still used
+(`content.js:77`), now for CPU and paranoia rather than necessity.
 
-**Filterbanks don't reconstruct flat.** Summing overlapping bandpass
-outputs does not reproduce the input — phase interactions ripple the
-spectrum. Consequence: "disable" cannot mean "set gains to 1"; it must
-route *around* the bank entirely (true bypass, `content.js:93`).
+**The BiquadFilterNode trap (the expensive lesson).** `BiquadFilterNode`
+lowpass/highpass interpret `Q` **in dB**, with implementation-specific
+filter designs — which silently breaks the LP² + HP² = allpass identity
+and put +14 dB bumps at every crossover point. The fix: compute RBJ
+cookbook coefficients by hand (bilinear transform, Q = 1/√2) and load them
+into `IIRFilterNode`, where the transfer function is exactly what you
+specify (`dsp.js:59-93`). If a filter identity matters, do not let the
+browser design the filter.
 
-**Dynamics compression.** A compressor reduces gain above a threshold, by
-`ratio`, softened over `knee` dB, reacting with `attack`/`release` time
-constants. Two very different uses here:
-- *WDRC per band*: gentle ratio that grows with hearing loss
-  (`ratio = 1 + loss/40`), threshold −35, slow-ish attack — this is the
-  "quiet sounds boosted more than loud sounds" behavior.
-- *Limiter*: threshold −3 dB, ratio 20:1, zero knee, 1 ms attack — a brick
-  wall. Safety, not tone shaping (`content.js:171`).
+**WDRC in a worklet.** Each ear's 8 crossover bands feed one
+`AudioWorkletNode` with 8 inputs (`content.js:211`). The processor
+(`worklets/wdrc.js`) runs an RMS detector per band and interpolates each
+band's gain from an input/output curve — gain prescribed at 50/65/80 dB
+program level, computed in `dsp.js:163` (`bandCurves`) for the selected
+target (comfort/adult/child — see the [audiology doc](03-clinical-audiology.md)).
+Detector time constants are user-selectable, fast/syllabic 5/80 ms vs.
+slow 20/500 ms (`dsp.js:52`) — genuinely contested in the literature,
+hence a toggle rather than a hardcode.
+
+**The limiter is the safety guarantee.** A look-ahead brickwall
+(`worklets/limiter.js`): delays audio a few ms, so gain reduction is in
+place *before* a peak arrives — a −1 dBFS ceiling that is sample-accurate,
+unlike `DynamicsCompressorNode`'s reactive attack. It is the LAST node
+before `destination` and master volume sits BEFORE it (`content.js:307`),
+so no user setting can bypass it. Two hard rules in the processor: any
+requested ceiling is clamped to −1 dBFS *or lower* (child mode lowers it
+to −7; nothing can raise it, `worklets/limiter.js:29`), and it meters its
+own output over a port message (mean-square + interval) that feeds the
+popup's level/dose estimate (`content.js:144`).
 
 **Parameter smoothing.** Jumping a gain value causes a click ("zipper
 noise"). `AudioParam.setTargetAtTime(value, now, timeConstant)` moves it
-exponentially instead (`content.js:109`).
+exponentially instead (`content.js:122`).
 
 **Autoplay policy.** Contexts start `suspended` until a user gesture;
-`content.js:180` resumes on `play` and on first click.
+`content.js:322` resumes on `play` and on first click.
 
 **Channel-count subtleties.** A mono stream entering a splitter comes out
 as left-only. The fix is a `GainNode` with `channelCount: 2,
 channelCountMode: "explicit"` forcing an upmix before the split
-(`content.js:145`) — discovered here the hard way when mono videos went
+(`content.js:281`) — discovered here the hard way when mono videos went
 silent in one ear.
 
 ## The full graph
 
 ```
 <video> ─ MediaElementSource ─ upmix(GainNode, forced stereo) ─ ChannelSplitter
-  ├─ ch0 (L): 8 × [bandpass → compressor → makeup gain] → earSum ─┐
-  └─ ch1 (R): same, right-ear params                              ├─ ChannelMerger
-                                                                  ↓
-                                     limiter(−3 dB, 20:1) → masterGain → destination
+  ├─ ch0 (L): LR4 crossover (8 bands) ─▶ WDRC worklet (8-in, RMS + I/O curves) ─┐
+  └─ ch1 (R): same, right-ear curves                                            ├─ ChannelMerger
+                                                                                ↓
+                 masterGain ─▶ limiter worklet (look-ahead, ≤ −1 dBFS, meters) ─▶ destination
 ```
 
-Bypass mode reconnects the source directly to `masterGain`.
+Bypass mode reconnects the source directly to `masterGain`
+(`content.js:79`). If `audioWorklet.addModule` fails, `buildLegacyGraph`
+(`content.js:231`) substitutes per-band `DynamicsCompressorNode`s (the I/O
+curves folded back into threshold/ratio terms) and a −3 dB/20:1 compressor
+as limiter — not a true brickwall, so the popup shows "⚠ fallback limiter"
+whenever this graph is carrying audio (`content.js:185`).
 
 ## Pitfalls learned here
 
 - `createMediaElementSource` throws if the element is already captured
   (another extension, a previous context). Guard it, remember the element,
-  and *don't retry* on every DOM mutation (`content.js:130`).
+  and *don't retry* on every DOM mutation (`content.js:266`).
 - SPAs replace their `<video>`; each replacement needs a fresh context
-  (`ctx.close()` then rebuild, `content.js:127`).
-- `DynamicsCompressorNode` is a black box (no side-chain, unspecified
-  makeup behavior); for exacting work people use `AudioWorklet` — the next
-  step up if this project ever outgrows the built-in node.
+  (`ctx.close()` then rebuild, `content.js:262`).
+- The BiquadFilterNode Q-in-dB behavior above — verify any filter math
+  against an `OfflineAudioContext` render, never trust node docs alone.
+- Worklet files load with `audioWorklet.addModule(chrome.runtime.getURL(…))`
+  from a content script, which requires `web_accessible_resources` in the
+  manifest — and can still fail, so a fallback graph is not optional.
+- Worklet modules can't `import`; shared constants (speeds, ceilings) are
+  duplicated into the processor files and must be kept in sync by hand.
+- `postMessage` to a worklet can lose the race against a fast
+  `OfflineAudioContext` render — tests pass configuration via
+  `processorOptions` instead (see `tests/test.js`).
+- Headless Chrome's `--virtual-time-budget` cuts off pending
+  `OfflineAudioContext` renders: synchronous tests report, async ones
+  silently never finish. The harness (`tests/serve.py`) runs Chrome
+  headless in the background and polls for the posted `results.json`.
 
 ## Further research
 
 - MDN overview: https://developer.mozilla.org/docs/Web/API/Web_Audio_API
 - The spec (unusually readable): https://webaudio.github.io/web-audio-api/
-- Search terms: "biquad filter cookbook" (the RBJ cookbook), "audio worklet",
-  "dynamics compressor attack release", "equal-loudness contour".
+- The RBJ "Audio EQ Cookbook" — the coefficient formulas `dsp.js` encodes.
+- Search terms: "Linkwitz-Riley crossover", "audio worklet processor",
+  "look-ahead limiter design", "wide dynamic range compression attack
+  release", "offline audio context testing".

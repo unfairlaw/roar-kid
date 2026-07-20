@@ -61,8 +61,10 @@ and hybrid-GPU laptops may probe the wrong GPU.
 The keyless photo-import path (`options.js`): availability-gated button →
 `createImageBitmap(file)` → single prompt combining `prompt-builtin.txt`
 and the image → `responseConstraint: NANO_SCHEMA` → parse → same
-review-before-apply pipeline as the cloud providers. When no provider key
-exists, the main Extract button silently falls back to this path.
+review-before-apply pipeline as the cloud providers. Since the v1 import
+hardening, on-device is the *default* extraction path where available;
+sending the photo to a cloud provider instead requires a per-import
+consent checkbox — privacy ordering made structural, not a fallback.
 
 Measured verdict (2026-07, Chrome 150): printed threshold tables
 (ABR/BERA reports) extract 16/16 deterministically; *plotted* audiogram

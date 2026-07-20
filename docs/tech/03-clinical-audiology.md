@@ -47,21 +47,48 @@ compression), which is what real hearing aids and this extension do.
 **Prescriptive fitting.** Formulas mapping an audiogram to per-band,
 per-level gain targets: NAL-NL2 (Australia, loudness-normalization
 lineage) and DSL v5.0 (Canada, child-focused). Both need calibrated
-hardware and measured uncomfortable-loudness levels. Roar, kid! v0
-deliberately implements only a coarse ancestor of these
-(`content.js:56`):
-- makeup gain = 0.45 × threshold — the classic **half-gain rule** (a 1970s
-  heuristic: aid gain ≈ half the loss);
-- ratio = 1 + loss/40 — recruitment compensation that reaches 2:1 at
-  40 dB HL.
+hardware and measured uncomfortable-loudness levels, which is why this
+project only ever *approximates* them and says so at the point of choice.
+The popup's three targets (`dsp.js:163`, `bandCurves`):
+- **Comfort** (default) — the v0 rule: makeup gain = 0.45 × threshold, the
+  classic **half-gain rule** (a 1970s heuristic: aid gain ≈ half the
+  loss), with ratio-style compression ≈ 1 + loss/40 (2:1 at 40 dB HL);
+- **Adult** — NAL-flavored: more mid-frequency speech emphasis, labeled
+  "approximate — not NAL-NL2" in the UI;
+- **Child** — DSL-flavored (more audibility-driven gain), **locked by
+  default**: it takes effect only after an audiologist-guidance
+  attestation on the options page, and while active drops the limiter
+  ceiling from −1 to −7 dBFS — a child's smaller ear canal yields several
+  dB more SPL for the same signal (real-ear-to-coupler difference, RECD),
+  so the same digital level is louder in a child's ear. A stored "child"
+  choice without the attestation behaves as comfort, and the popup says
+  which target is actually applied (`content.js:81-95`).
+
+Each target's output is an input/output curve per band — gain at 50, 65,
+and 80 dB program level — which is what WDRC actually is: more gain for
+quiet input than loud.
+
+**dB HL is not dB SPL at the ear — the anchor problem.** The software can
+compute *relative* gain from an audiogram, but any absolute statement
+("you are listening at 78 dB") requires knowing what SPL a full-scale
+digital signal produces on *this* hardware — and across laptops and
+headphones that varies by 10–20 dB. v1.1's answer is a **loudness anchor**
+(options page): a 1 kHz tone at a fixed digital level that the user
+matches to conversational loudness (~65 dB SPL), stored per output device.
+Until an anchor exists, level and listening-dose readouts are suppressed
+and the UI says "relative — no anchor" rather than guessing
+(`content.js:137-153`). The dose estimate itself follows ITU-T H.870's
+conservative Mode 2 framing: 100% of a weekly sound allowance = 75 dBA
+for 40 hours.
 
 **The safety ceilings are clinical, not arbitrary.** Thresholds clamp at
-70 dB HL ("aids, not miracles", `content.js:63`); the −3 dB / 20:1 master
-limiter never comes off. Severe/profound loss (> 70 dB) needs acoustic
-output and fitted safety limits (measured UCL/MPO per ear) that consumer
-headphones and full-scale digital audio cannot provide — that territory is
-deliberately, permanently out of scope. See the warning in the README and
-`DOCUMENTATION.md`.
+70 dB HL ("aids, not miracles") and per-band gain at 35 dB — scope
+limits, while the always-on look-ahead limiter (≤ −1 dBFS, lower in child
+mode, never raisable — `worklets/limiter.js:29`) is the safety guarantee.
+Severe/profound loss (> 70 dB) needs acoustic output and fitted safety
+limits (measured UCL/MPO per ear) that consumer headphones and full-scale
+digital audio cannot provide — that territory is deliberately, permanently
+out of scope. See the warning in the README and `DOCUMENTATION.md`.
 
 **ABR/BERA.** Auditory brainstem response — the objective (electrode-based)
 hearing test used for infants and toddlers, reported as a printed threshold
@@ -72,8 +99,11 @@ real-world test case.
 ## How Roar, kid! uses it
 
 - Chart conventions and 5 dB grid: `popup.js` (`draw`, `plotFromEvent`).
-- Fitting rule and ceilings: `content.js:56-72`.
-- Band set + Q derivation and the 6→8-band migration: `content.js:12-54`.
+- Targets, curves, clamps, calibration offsets: `dsp.js` (`bandCurves`,
+  `calibrationOffsets`); applied in `content.js:72` (`applySettings`).
+- Band set, LR4 crossover points, and the 6→8-band migration:
+  `dsp.js:16-22`, `content.js:59` (`migrateBands`).
+- Anchor storage and dose accounting: `content.js:137-176`.
 - Import prompt rules (transcribe only what's on paper; `null` for
   untested frequencies; software interpolates, never the model):
   `roar-kid/prompt.txt`.
@@ -85,5 +115,7 @@ real-world test case.
 - NAL-NL2: Keidser et al., 2011, *Audiology Research*. DSL v5.0: Scollie
   et al., 2005.
 - ANSI S3.5 (Speech Intelligibility Index).
+- ITU-T H.870 (safe listening devices) — the dose framing.
 - Search terms: "loudness recruitment", "pure tone average", "real-ear
-  measurement", "UCL MPO fitting", "auditory brainstem response threshold".
+  measurement", "UCL MPO fitting", "auditory brainstem response threshold",
+  "real-ear-to-coupler difference RECD", "NAL-NL2 vs DSL v5".

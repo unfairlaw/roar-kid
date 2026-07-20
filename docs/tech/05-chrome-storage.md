@@ -20,16 +20,22 @@ context when any value changes.
 
 | Data | Area | Why |
 |------|------|-----|
-| Hearing thresholds, enabled flag, volume | `sync` | Sixteen small numbers; roaming them is user convenience. Disclosed as health data in the store filing. |
+| Hearing thresholds, enabled flag, volume, target mode, WDRC speed, red-flags acknowledgment | `sync` | Small values; roaming them is user convenience. Thresholds are disclosed as health data in the store filing. |
+| Calibration (headphone profile, per-band tone-match and mic-correction offsets) | `sync` | Describes the user's *listening setup*; owned by the options page. |
 | API keys | `local`, **only on explicit "Save key"** | Credentials must never roam. A key pasted for a one-off import is used and *never stored at all* — the strongest claim in the privacy policy. |
+| Loudness anchors, keyed by output-device signature | `local`, never `sync` | An anchor is a physical measurement of *this device's* hardware chain — roaming it to another machine would make it wrong by design (`content.js:155-176`). |
+| Child-target attestation | `sync` (but the *gate* re-checks it) | The stored flag is convenience; `applySettings` treats un-attested "child" as comfort every time, so a tampered or half-synced value fails safe (`content.js:81`). |
 
 This split is written into `PRIVACY_POLICY.md` and the store's data-usage
 disclosures — storage choices become legal text, so make them deliberately.
 
-**Storage as the message bus.** The popup never messages the content
-script. It just writes settings (`popup.js:107`); the content script
-subscribed with `chrome.storage.onChanged` (`content.js:206`) re-reads and
-re-applies. Effects:
+**Storage as the message bus.** For settings, the popup never messages the
+content script. It just writes (`popup.js:206`); the content script
+subscribed with `chrome.storage.onChanged` re-reads and re-applies. (The
+one true message in the project — the popup's `roar-dose` poll for live
+level/dose — is the exception that proves the rule: ephemeral, per-tab,
+read-on-demand telemetry is what messaging is *for*; durable settings are
+what storage is for.) Effects:
 - zero messaging code, zero tab-targeting logic;
 - every open tab updates simultaneously;
 - state and notification cannot desynchronize (the write *is* the event);
@@ -61,6 +67,11 @@ second; the popup coalesces them with a 150 ms timer before writing
 - Storing a key *only on explicit action* is both better UX copy and a
   materially stronger store disclosure — "never stored unless you press
   Save" is verifiable from the code.
+- **Two writers, one namespace: write only the keys you own.** A naive
+  `set(allSettings)` from the popup would overwrite the calibration the
+  options page just saved with the popup's stale copy. The popup's `save()`
+  therefore writes an explicit key list (`popup.js:206-218`) — the
+  storage-area equivalent of a partial UPDATE vs. replacing the whole row.
 
 ## Further research
 
