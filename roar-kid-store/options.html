@@ -89,14 +89,22 @@
   </div>
 
   <h2>Import audiogram from photo</h2>
-  <p class="sub">Crop out any personally identifiable information before uploading —
-  the image is sent to the AI provider you select, and its use is subject to that
-  provider's terms of service and privacy policy.</p>
+  <p class="sub">On-device extraction is the default whenever this machine
+  supports it: the photo never leaves your computer. Sending it to a cloud
+  provider instead requires a key above <em>and</em> ticking the consent box
+  for each import. Crop out any personally identifiable information before
+  uploading — a cloud image is subject to that provider's terms of service
+  and privacy policy.</p>
   <div class="extract-controls">
     <input type="file" id="photo" accept="image/*" />
     <button id="extract">Extract thresholds</button>
     <span id="busy">reading chart…</span>
   </div>
+  <label class="sub" style="display:flex; gap:6px; align-items:baseline; margin-top:8px;">
+    <input type="checkbox" id="cloudConsent" />
+    <span>Send this photo to the cloud provider whose key is filled in above
+    (it leaves this device). Unticked, extraction stays on-device.</span>
+  </label>
   <div class="extract-controls" id="builtinRow" style="display:none; margin-top:8px;">
     <button id="extractBuiltin" class="ghost">Extract with Chrome's built-in AI</button>
   </div>
@@ -110,13 +118,53 @@
   <div id="preview">
     <table id="tbl"></table>
     <div class="note" id="meta"></div>
+    <div class="note" id="plaus" style="display:none; border-left: 3px solid var(--right-red);"></div>
+    <label style="display:flex; gap:6px; align-items:baseline; margin-top:10px;">
+      <input type="checkbox" id="reviewed" />
+      <span>I compared every value in this table against the paper report.</span>
+    </label>
     <div style="margin-top:10px; display:flex; gap:8px;">
-      <button id="apply">Apply to audiogram</button>
+      <button id="apply" disabled>Apply to audiogram</button>
       <button id="discard" class="ghost">Discard</button>
     </div>
     <p class="sub" style="margin-top:8px;">Applying is not final — open the
     extension popup to review each point on the chart and drag anything the
     model misread.</p>
+  </div>
+
+  <h2>Calibration</h2>
+  <p class="sub">Without calibration the per-band gains are internally
+  consistent but not absolute: what reaches the ear depends on your
+  headphones and volume. Two helpers, both optional. Neither is clinical
+  probe-microphone verification.</p>
+
+  <div class="keyrow">
+    <label for="hpProfile">Headphones</label>
+    <select id="hpProfile">
+      <option value="none">no correction</option>
+      <option value="bass-heavy">closed consumer (bass-heavy)</option>
+      <option value="earbuds">small earbuds</option>
+    </select>
+    <span class="sub" style="flex:1;">generic average shapes, not measurements</span>
+  </div>
+
+  <p class="sub" style="margin-top:12px;"><strong>Tone match:</strong> use your
+  usual headphones at your usual volume. Play the 1&nbsp;kHz tone as the
+  anchor, then each other tone; drag its slider until it sounds equally
+  loud. The offsets become part of the correction the player applies.</p>
+  <div id="toneRows"></div>
+  <div style="display:flex; gap:8px; margin-top:8px;">
+    <button id="toneReset" class="ghost">Reset tone offsets</button>
+  </div>
+
+  <p class="sub" style="margin-top:12px;"><strong>Measurement-mic
+  correction:</strong> the repo's <span class="mono">calibrate_playback.py</span>
+  measures your actual playback response with a USB measurement mic and
+  writes a correction JSON — import it here.</p>
+  <div class="extract-controls">
+    <input type="file" id="micFile" accept="application/json,.json" />
+    <button id="micClear" class="ghost">Clear mic correction</button>
+    <span class="sub" id="micStatus"></span>
   </div>
 
 <script src="options.js"></script>

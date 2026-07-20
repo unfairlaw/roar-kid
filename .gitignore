@@ -6,3 +6,4 @@ __pycache__/
 spike-prompt-api/bera_truth.json
 # personal study notes, untracked by choice
 PROMPT_API_RESEARCH.md
+tests/results.json

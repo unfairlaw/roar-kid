@@ -40,6 +40,7 @@
   }
   .ear-toggle button.on-right { background: var(--right-red); color: #fff; }
   .ear-toggle button.on-left  { background: var(--left-blue);  color: #fff; }
+  .ear-toggle button.on-mode  { background: var(--ink); color: var(--paper); }
   .spacer { flex: 1; }
   label.switch { display: flex; gap: 6px; align-items: center; font-size: 12px; }
   footer {
@@ -68,10 +69,22 @@
     <label class="switch"><input type="checkbox" id="enabled" checked />on</label>
   </div>
 
+  <div class="row" style="padding-top:0;">
+    <span class="mono" title="Gain rule used to turn the audiogram into per-band gains">target</span>
+    <div class="ear-toggle" id="modeToggle">
+      <button data-mode="comfort">comfort</button>
+      <button data-mode="adult">adult</button>
+      <button data-mode="child">child</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="mono" id="dose" title="Estimated listening level and weekly sound dose (ITU-T H.870 conservative mode). An assumption-based estimate, not a measurement."></span>
+  </div>
+
   <footer>
     Plot the thresholds from a real audiogram. Points below the shaded
     band are where the boost happens. Not a medical device — a listening
-    supplement.
+    supplement. The dose figure is an estimate built on a stated
+    assumption, not a measurement.
   </footer>
 
 <script src="popup.js"></script>

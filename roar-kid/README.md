@@ -51,27 +51,55 @@ hearing aid replacement** — especially not for children in classrooms.
 ## Architecture
 
 ```
-<video> ─ MediaElementSource ─ ChannelSplitter
-   ├─ L: [250 500 1k 2k 3k 4k 6k 8k]  bandpass → compressor → makeup gain → Σ
-   └─ R: same, right-ear audiogram
-        └────────── ChannelMerger → limiter (−3 dB, 20:1) → volume → out
+<video> ─ MediaElementSource ─ upmix(2ch) ─ ChannelSplitter
+   ├─ L: LR4 crossover [250 500 1k 2k 3k 4k 6k 8k] → WDRC AudioWorklet → ┐
+   └─ R: same, right-ear audiogram                                       ├─
+        ChannelMerger → volume → look-ahead brickwall limiter (worklet) → out
 ```
 
-Fitting rule (v0, deliberately conservative):
-- makeup gain = `0.45 × threshold(dB HL)` (half-gain-ish rule)
-- compression ratio = `1 + loss/40` (recruitment compensation)
-- hard output limiter always on (child safety)
+- **Crossover:** cascaded Linkwitz–Riley (LR4) with allpass phase
+  compensation, built from explicit RBJ biquad coefficients on
+  `IIRFilterNode` — the band sum is flat at unity (±1 dB asserted by
+  `tests/`), so an all-zero audiogram is transparent.
+- **WDRC:** an `AudioWorklet` per ear with a true RMS detector and per-band
+  input/output curves (gain at 50/65/80 dB program level, interpolated).
+- **Targets** (popup selector): `comfort` = the conservative v0 rule
+  (gain `0.45 × threshold`, ratio `1 + loss/40`); `adult` = NAL-R-flavored;
+  `child` = DSL-flavored (more gain, audibility first). The latter two are
+  stated approximations, not the proprietary formulas.
+- **Limiter:** look-ahead (3 ms) brickwall `AudioWorklet` with a
+  sample-accurate hard ceiling at −1 dBFS, always on, last node in the
+  graph — master volume sits *before* it, so nothing can bypass it. It also
+  meters output for the popup's estimated listening-dose readout
+  (ITU-T H.870 conservative-mode framing; estimate, not measurement).
+- **Calibration** (options page): headphone-profile presets, a
+  reference-tone loudness match, and import of a correction JSON measured
+  by `calibrate_playback.py` with a cheap USB measurement mic. Without it,
+  gains are relative, not absolute.
+
+## Tests
+
+```
+python3 tests/serve.py 8471          # from the repo root
+# open http://127.0.0.1:8471/tests/test.html
+```
+
+Covers: prescriptive-curve reference values, crossover+WDRC flatness at
+unity (±1 dB, 100 Hz–12 kHz), level-dependence of the WDRC, and the
+sample-accurate limiter ceiling under worst-case transients.
 
 ## Roadmap
 
-- [ ] Proper crossover network (cascaded Linkwitz–Riley LP/HP instead of
-      bandpass taps — flat reconstruction at unity)
-- [ ] Real DSL v5.0 / NAL-NL2 gain targets (level-dependent, implemented as
-      per-band input/output curves via WaveShaper or AudioWorklet)
-- [ ] AudioWorklet port for tighter control + true RMS-based WDRC
-- [ ] Import audiogram from photo of the clinical chart (this is where your
-      ML background earns its keep)
-- [ ] Firefox port (manifest tweaks only)
+- [x] Proper crossover network (cascaded Linkwitz–Riley — flat at unity)
+- [x] Level-dependent per-band I/O curves via AudioWorklet + RMS detection
+- [x] Look-ahead brickwall limiter (AudioWorklet, sample-accurate ceiling)
+- [x] Import audiogram from photo of the clinical chart
+- [x] Self-calibration (tone match, headphone profiles, mic correction)
+- [ ] Firefox port (manifest key is in; needs real-world testing)
+- [ ] Closer NAL-NL2 / DSL v5.0 target tables (current curves are
+      first-order approximations)
+- [ ] On-device CV/OCR extraction path (purpose-built, not LLM) as default
+      where Chrome's built-in model is unavailable
 
 ## Why not static EQ?
 

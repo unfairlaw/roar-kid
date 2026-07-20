@@ -5,7 +5,14 @@
 
 const BANDS = [250, 500, 1000, 2000, 3000, 4000, 6000, 8000];
 const DB_MIN = -10, DB_MAX = 70;
-const DEFAULTS = { enabled: true, left: [0,0,0,0,0,0,0,0], right: [0,0,0,0,0,0,0,0], masterVolume: 1.0 };
+const DEFAULTS = {
+  enabled: true,
+  left: [0,0,0,0,0,0,0,0],
+  right: [0,0,0,0,0,0,0,0],
+  masterVolume: 1.0,
+  targetMode: "comfort", // comfort | adult | child gain rule
+  calibration: { profile: "none", userOffsets: null, micOffsets: null },
+};
 
 // Settings saved by the 6-band version lack 3k and 6k: interpolate them.
 function migrateBands(arr) {
@@ -109,10 +116,52 @@ document.getElementById("aiLink").onclick = (e) => {
 document.getElementById("enabled").onchange = (e) => { settings.enabled = e.target.checked; save(); };
 document.getElementById("vol").oninput = (e) => { settings.masterVolume = +e.target.value; save(); };
 
+// Target selector: which rule turns thresholds into per-band I/O curves.
+// "comfort" = conservative v0 rule; "adult"/"child" = NAL-/DSL-flavored
+// approximations (see DOCUMENTATION.md — approximations, not the real
+// proprietary formulas).
+function setMode(mode) {
+  settings.targetMode = mode;
+  for (const b of document.querySelectorAll("#modeToggle button")) {
+    b.className = b.dataset.mode === mode ? "on-mode" : "";
+  }
+}
+for (const b of document.querySelectorAll("#modeToggle button")) {
+  b.onclick = () => { setMode(b.dataset.mode); save(); };
+}
+
+// Live estimated listening level / weekly sound dose from the content
+// script's limiter metering. Silent (blank) when no wired tab is active.
+function pollDose() {
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    if (!tab?.id) return;
+    chrome.tabs.sendMessage(tab.id, { type: "roar-dose" }, (r) => {
+      if (chrome.runtime.lastError || !r?.ok || !r.metering) {
+        document.getElementById("dose").textContent = "";
+        return;
+      }
+      const lvl = r.levelDb == null ? "—" : `~${Math.round(r.levelDb)} dB est`;
+      document.getElementById("dose").textContent =
+        `${lvl} · dose ${r.dosePct < 0.1 ? "<0.1" : r.dosePct.toFixed(1)}%`;
+    });
+  });
+}
+setInterval(pollDose, 1000);
+pollDose();
+
 let saveTimer;
 function save() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => chrome.storage.sync.set(settings), 150);
+  // Write only the keys the popup owns — calibration belongs to the
+  // options page, and writing a stale snapshot of it here would clobber
+  // edits made while this popup sat open.
+  saveTimer = setTimeout(() => chrome.storage.sync.set({
+    enabled: settings.enabled,
+    left: settings.left,
+    right: settings.right,
+    masterVolume: settings.masterVolume,
+    targetMode: settings.targetMode,
+  }), 150);
 }
 
 chrome.storage.sync.get(DEFAULTS, (s) => {
@@ -121,6 +170,7 @@ chrome.storage.sync.get(DEFAULTS, (s) => {
   settings = s;
   document.getElementById("enabled").checked = s.enabled;
   document.getElementById("vol").value = s.masterVolume;
+  setMode(s.targetMode || "comfort");
   draw();
 });
 draw();
