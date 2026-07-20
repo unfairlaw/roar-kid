@@ -99,6 +99,31 @@ deep-dives in [`docs/tech/`](docs/tech/).
 Detailed local-testing steps and L/R troubleshooting are in
 [`roar-kid/README.md`](roar-kid/README.md#testing-locally).
 
+## Testing
+
+The DSP itself — crossover, WDRC, limiter, calibration math — is covered by
+an 18-check harness in [`tests/test.js`](tests/test.js), run headlessly with
+real Web Audio (`OfflineAudioContext` and, for T7, a live `AudioContext`), no
+build step or framework:
+
+```
+python3 tests/serve.py            # from the repo root
+google-chrome --headless=new --no-sandbox \
+  --autoplay-policy=no-user-gesture-required \
+  http://127.0.0.1:8471/tests/test.html
+# results land in tests/results.json
+```
+
+| # | Checks | What it verifies |
+|---|--------|-------------------|
+| T1 | a–h | Prescriptive curves: each target rule (comfort/adult/child) produces the stated gain, ratios stay monotone in loss, the band-gain cap holds, calibration offsets shift and clamp correctly, and adult/child land within tolerance of published NAL-R/DSL reference points (NFR-T.2). |
+| T2 | — | Signal integrity: the 8-band crossover + WDRC, fed a zero audiogram, sums flat within ±1 dB from 100 Hz–12 kHz — silence-in-the-audiogram must mean transparent-in-spirit audio out. |
+| T3 | — | WDRC behavior: at a flat 40 dB HL curve, a quiet tone gets more gain than a loud one — the entire point of wide-dynamic-range compression. |
+| T4 | a–d | Limiter: worst-case input never produces a sample above the −1 dBFS ceiling (sample-accurate), the reduced child-mode ceiling holds, a message can never raise the ceiling, and the legacy `DynamicsCompressorNode` fallback (used only if `AudioWorklet` fails to load) stays within a bounded overshoot of its own threshold — SR-1, the limiter-is-last invariant. |
+| T5 | a–b | Calibration round-trip: known headphone/tone/mic-correction offsets combine, clamp to ±12 dB, and land 1:1 in the output curves (NFR-T.4). |
+| T6 | — | End-to-end processing latency (crossover + WDRC + limiter look-ahead), measured via the impulse response's energy centroid in an `OfflineAudioContext` — asserted inside the ITU lip-sync budget (FR-2.5). |
+| T7 | — | Real A/V sync: a synthetic clip plays through the actual production graph and through an unprocessed baseline in a *live* `AudioContext`, using `requestVideoFrameCallback` and `getOutputTimestamp` to compare each against genuine video-frame display timing. The delta isolates what the extension's processing adds from the test clip's own encode jitter — the part T6's offline measurement can't reach. |
+
 ## Repository layout
 
 | Path | What it is |
