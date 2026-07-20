@@ -120,9 +120,12 @@ async function callAnthropic(key, mime, b64) {
   return tool.input;
 }
 
-// Gemini's responseSchema is OpenAPI-style: nullable flag, not type arrays
+// Gemini's responseSchema is OpenAPI-style, a fixed proto: nullable flag
+// instead of type arrays, and no additionalProperties field at all — the
+// API 400s on any unknown schema key rather than ignoring it.
 function geminiSchema() {
   const s = structuredClone(SCHEMA);
+  delete s.additionalProperties;
   for (const ear of ["right", "left"]) {
     s.properties[ear].items = { type: "number", nullable: true };
   }
