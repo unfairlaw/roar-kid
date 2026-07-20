@@ -13,7 +13,7 @@ future-you reusing the technique on another project (bottom half).
 |------|---------|--------|
 | `01-popup-audiogram-1280x800.png` | Popup with a plausible mild sloping-loss audiogram, target selector (comfort/adult/child), WDRC speed toggle | ✅ refreshed 2026-07-20 for 0.5.0 (`tools/retake_v050.py`) |
 | `02-options-import-1280x800.png` | Options page, keys + photo-import section (on-device default, cloud consent checkbox) | ✅ refreshed 2026-07-20 for 0.5.0 — now a section crop; the full page grew too tall to fit one frame legibly |
-| `03-youtube-popup-1280x800.png` | YouTube (theater mode, Big Buck Bunny) with the popup open over it | ⚠️ still shows the **0.3.0** popup (no target selector) — manual retake needed, steps below |
+| `03-youtube-popup-1280x800.png` | YouTube (theater mode, Big Buck Bunny) with the 0.5.0 popup open over it (target selector, "relative — no anchor") | ✅ retaken manually 2026-07-20; cropped to 1280×800 with the profile avatar cut out and the truncated masthead button patched |
 | `04-options-anchor-1280x800.png` | Options page, loudness-anchor section ("relative until anchored" note visible) | ✅ new 2026-07-20 (`tools/retake_v050.py`) |
 | `05-options-calibration-1280x800.png` | Options page, calibration/response-shape section: headphone preset, tone-match sliders (1 kHz anchor), measurement-mic correction import | ✅ new 2026-07-20 (`tools/retake_v050.py`) |
 
