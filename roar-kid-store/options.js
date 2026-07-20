@@ -583,3 +583,118 @@ chrome.storage.sync.get({ calibration: CAL_DEFAULT }, (s) => {
   renderToneRows();
   micStatusText();
 });
+
+// -------------------------------------------------- loudness anchor (FR-3)
+// In-situ anchoring: a fixed-digital-level 1 kHz tone plays while the user
+// sets SYSTEM volume to conversational-speech loudness; saving records the
+// implied full-scale-to-SPL mapping, keyed to a signature of this
+// machine's audio outputs (chrome.storage.local — an anchor never syncs to
+// another machine). The content script suppresses level/dose readouts
+// until an anchor exists and flags it stale when the device set changes.
+
+const DSP = globalThis.RoarDSP;
+let anchorCtx = null, anchorOsc = null;
+
+function stopAnchorTone() {
+  if (anchorOsc) { try { anchorOsc.stop(); } catch {} }
+  anchorOsc = null;
+  $("anchorTone").textContent = "Play anchor tone";
+}
+
+$("anchorTone").onclick = () => {
+  if (anchorOsc) return stopAnchorTone();
+  if (!anchorCtx) anchorCtx = new AudioContext();
+  anchorCtx.resume();
+  const g = new GainNode(anchorCtx, { gain: DSP.ANCHOR_TONE_AMP });
+  anchorOsc = new OscillatorNode(anchorCtx, { frequency: 1000 });
+  anchorOsc.connect(g).connect(anchorCtx.destination);
+  anchorOsc.start();
+  $("anchorTone").textContent = "Stop tone";
+};
+
+async function renderAnchors() {
+  const sig = await DSP.outputDeviceSignature();
+  const { anchors = {} } = await chrome.storage.local.get("anchors");
+  const entries = Object.entries(anchors);
+  $("anchorStatus").textContent = anchors[sig]
+    ? `Anchor active for the current output device (“${anchors[sig].label}”, ` +
+      `saved ${new Date(anchors[sig].when).toLocaleDateString()}). ` +
+      `Level and dose readouts are on.`
+    : entries.length
+      ? "No anchor matches the current output device — the newest saved " +
+        "anchor is used but flagged stale. Re-anchor on this setup."
+      : "No anchor saved yet — the popup shows no level or dose numbers " +
+        "(relative mode).";
+  $("anchorList").innerHTML = entries
+    .map(([s, a], i) =>
+      `<div class="keyrow"><span class="sub" style="flex:1;">` +
+      `${a.label || "unnamed"} — ${new Date(a.when).toLocaleDateString()}` +
+      `${s === sig ? " (current device)" : ""}</span>` +
+      `<button class="ghost" data-sig="${encodeURIComponent(s)}">remove</button></div>`)
+    .join("");
+  for (const b of $("anchorList").querySelectorAll("button")) {
+    b.onclick = async () => {
+      const { anchors = {} } = await chrome.storage.local.get("anchors");
+      delete anchors[decodeURIComponent(b.dataset.sig)];
+      await chrome.storage.local.set({ anchors });
+      renderAnchors();
+    };
+  }
+}
+
+$("anchorSave").onclick = async () => {
+  stopAnchorTone();
+  const sig = await DSP.outputDeviceSignature();
+  const { anchors = {} } = await chrome.storage.local.get("anchors");
+  anchors[sig] = {
+    refDb: DSP.anchorRefDb(),
+    label: $("anchorLabel").value.trim() || "unnamed setup",
+    when: Date.now(),
+  };
+  await chrome.storage.local.set({ anchors });
+  renderAnchors();
+};
+
+try {
+  navigator.mediaDevices.addEventListener("devicechange", renderAnchors);
+} catch {}
+renderAnchors();
+
+// ------------------------------------------------ child target gate (SR-2)
+// The child target ships locked. Unlocking requires the explicit
+// audiologist attestation below; the popup and content script both check
+// this flag, and the active child target runs under a reduced limiter
+// ceiling (CHILD_CEILING_DB, clamped in the worklet so it can only ever
+// be lower than the adult ceiling).
+
+function renderChildGate(childMode) {
+  const unlocked = !!childMode?.unlocked;
+  $("childStatus").textContent = unlocked
+    ? `unlocked ${new Date(childMode.when).toLocaleDateString()} — ` +
+      `ceiling ${DSP.CHILD_CEILING_DB} dBFS`
+    : "locked — the child button in the popup is inactive";
+  $("childLock").disabled = !unlocked;
+  $("childAttest").checked = false;
+  $("childUnlock").disabled = true;
+}
+
+$("childAttest").onchange = (e) => {
+  $("childUnlock").disabled = !e.target.checked;
+};
+
+$("childUnlock").onclick = () => {
+  if (!$("childAttest").checked) return;
+  const childMode = { unlocked: true, when: Date.now() };
+  chrome.storage.sync.set({ childMode });
+  renderChildGate(childMode);
+};
+
+$("childLock").onclick = () => {
+  const childMode = { unlocked: false };
+  chrome.storage.sync.set({ childMode });
+  renderChildGate(childMode);
+};
+
+chrome.storage.sync.get({ childMode: { unlocked: false } }, (s) =>
+  renderChildGate(s.childMode)
+);

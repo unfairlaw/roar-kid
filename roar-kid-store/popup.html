@@ -18,7 +18,11 @@
   body {
     width: 340px; margin: 0; background: var(--paper); color: var(--ink);
     font: 13px/1.4 -apple-system, "Segoe UI", sans-serif;
+    position: relative; /* containing block for the first-run notice */
   }
+  #modeNote { color: #6b675c; }
+  .ear-toggle button.locked { opacity: 0.45; }
+  #dose.warn { color: var(--right-red); }
   header {
     display: flex; align-items: baseline; justify-content: space-between;
     padding: 12px 14px 8px; border-bottom: 1px solid var(--grid);
@@ -74,18 +78,45 @@
     <div class="ear-toggle" id="modeToggle">
       <button data-mode="comfort">comfort</button>
       <button data-mode="adult">adult</button>
-      <button data-mode="child">child</button>
+      <button data-mode="child" id="childBtn">child</button>
     </div>
     <div class="spacer"></div>
-    <span class="mono" id="dose" title="Estimated listening level and weekly sound dose (ITU-T H.870 conservative mode). An assumption-based estimate, not a measurement."></span>
+    <span class="mono" id="dose" title="Listening level and weekly sound dose (ITU-T H.870 conservative mode), shown only after the loudness anchor in Settings; until then the system is relative and shows no number."></span>
   </div>
 
-  <footer>
+  <div class="row" style="padding-top:0;">
+    <span class="mono" id="modeNote"></span>
+    <div class="spacer"></div>
+    <span class="mono" title="WDRC detector speed. fast (5/80 ms) tracks syllables; slow (20/500 ms) rides the longer-term level — try both, keep what sounds clearer.">wdrc</span>
+    <div class="ear-toggle" id="speedToggle">
+      <button data-speed="fast">fast</button>
+      <button data-speed="slow">slow</button>
+    </div>
+  </div>
+
+  <footer id="foot">
     Plot the thresholds from a real audiogram. Points below the shaded
     band are where the boost happens. Not a medical device — a listening
-    supplement. The dose figure is an estimate built on a stated
-    assumption, not a measurement.
+    supplement. Level and dose appear only once a loudness anchor is set
+    in Settings, and stay estimates even then.
   </footer>
+
+  <!-- SR-4: first-run notice; shown until acknowledged once. -->
+  <div id="redflags" style="display:none; position:absolute; inset:0; background:var(--paper); padding:16px 18px; overflow:auto;">
+    <h1 style="font-size:14px; margin:0 0 8px;">Before you start</h1>
+    <p style="margin:0 0 8px;">Some things are reasons to see an ENT doctor
+    and an audiologist <strong>before</strong> adjusting sound on your own:</p>
+    <ul style="margin:0 0 8px; padding-left:18px;">
+      <li>one ear clearly worse than the other</li>
+      <li>tinnitus (ringing), ear drainage, or ear pain</li>
+      <li>dizziness or balance problems</li>
+      <li>sudden or one-sided hearing change</li>
+    </ul>
+    <p style="margin:0 0 10px;">This extension is a listening-comfort EQ for
+    streaming media. It is not a hearing aid, not a medical device, and not
+    a substitute for professional hearing care.</p>
+    <button id="redflagsOk" style="border:1px solid var(--ink); border-radius:6px; background:var(--ink); color:var(--paper); font:inherit; padding:6px 14px; cursor:pointer;">I understand</button>
+  </div>
 
 <script src="popup.js"></script>
 </body>
