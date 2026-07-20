@@ -156,9 +156,11 @@ raised), level/dose readouts are suppressed until the user calibrates, and
 
 ## Test instructions (dashboard "Testing instructions" field)
 
-The field is capped at 500 characters — paste this 491-char version:
+The field is capped at 500 characters — paste this 498-char version
+(updated for 0.5.0: preempts "Child button greyed out" and "no level
+numbers shown" being filed as bugs — both are by design):
 
-No login needed. 1) Play youtube.com/watch?v=aqz-KE-bpKQ (openly licensed film). 2) Click the extension icon, plot points on the chart (40-50 dB HL at 2k-8k Hz is clearly audible); audio changes as you plot. Toggle "on" to A/B. Also runs on Netflix/Prime Video. Optional photo import (options page): needs the user's OWN API key (none ships), or on supported hardware an on-device Chrome built-in AI button appears (gated by Chrome). Test image: icons-preview/test_audiogram.png in the repo.
+No login needed. 1) Play youtube.com/watch?v=aqz-KE-bpKQ (openly licensed film). 2) Click the icon, plot points (40-50 dB HL at 2k-8k Hz is clearly audible); audio changes as you plot. Toggle "on" to A/B. Also runs on Netflix/Prime. New in 0.5.0: target selector (Child locked unless attested in options) + loudness anchor; level/dose show only after anchoring. Photo import: user's OWN key (none ships), or on-device Chrome AI where supported. Test image: icons-preview/test_audiogram.png in repo.
 
 Fuller reference version (for reviewer email replies, too long for the field):
 
