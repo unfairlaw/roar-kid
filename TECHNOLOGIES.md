@@ -8,8 +8,8 @@ pitfalls hit here, and where to research further.
 | # | Document | One-line summary |
 |---|----------|------------------|
 | 1 | [Chrome Extensions — Manifest V3](docs/tech/01-chrome-extensions-mv3.md) | The platform contract: manifest, three execution worlds, permissions, the remote-code ban. |
-| 2 | [Web Audio API](docs/tech/02-web-audio-api.md) | The node graph: LR4 crossover on explicit RBJ coefficients, WDRC and look-ahead-limiter worklets, the legacy fallback, channel handling. |
-| 3 | [Clinical audiology](docs/tech/03-clinical-audiology.md) | dB HL, recruitment, WDRC, the comfort/adult/child targets, the loudness anchor and dose estimate, and why the safety ceilings exist. |
+| 2 | [Web Audio API](docs/tech/02-web-audio-api.md) | The node graph: LR4 crossover on explicit RBJ coefficients, WDRC and look-ahead-limiter worklets (with transient guard), the legacy fallback, channel handling, the CTA-2051-aligned test harness. |
+| 3 | [Clinical audiology](docs/tech/03-clinical-audiology.md) | dB HL, recruitment, WDRC, the comfort/adult/child targets, the loudness anchor and dose estimate, why the safety ceilings exist, and CTA-2051 alignment without a conformance claim. |
 | 4 | [Canvas 2D + Pointer Events](docs/tech/04-canvas-pointer-events.md) | The interactive audiogram editor: coordinate mapping, snapping, drag state, touch. |
 | 5 | [chrome.storage](docs/tech/05-chrome-storage.md) | sync vs. local as a privacy decision, and onChanged as a zero-code message bus. |
 | 6 | [MutationObserver & SPAs](docs/tech/06-mutationobserver-spa.md) | Surviving streaming sites that build and rebuild themselves; cheap observers; failure containment. |

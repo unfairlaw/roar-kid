@@ -7,7 +7,11 @@
 // peak-oriented, under-specified makeup gain) cannot express.
 //
 // The main thread posts {curves: [{g50,g65,g80} x 8]} — gain in dB at
-// 50/65/80 dB program level. Program level = detected RMS dBFS + refDb.
+// 50/65/80 dB program level; the same settings are also accepted at
+// construction via processorOptions (like the limiter's ceilingDb),
+// because a posted message can lose the race against a fast offline
+// render — tests/ relies on the construction path for determinism.
+// Program level = detected RMS dBFS + refDb.
 // refDb defaults to the documented full-scale-to-SPL assumption and is
 // replaced by the per-device loudness anchor when one exists (posted as
 // {refDb}). Between control points the gain is linearly interpolated in dB;
@@ -36,14 +40,15 @@ class RoarWdrcProcessor extends AudioWorkletProcessor {
     this.setSpeed("fast");
     // Applied-gain smoothing: ~10 ms, kills zipper noise between blocks.
     this.gainCoef = Math.exp(-1 / (sampleRate * 0.01));
-    this.port.onmessage = (e) => {
-      const d = e.data || {};
+    const apply = (d) => {
       if (Array.isArray(d.curves)) this.curves = d.curves;
       if (typeof d.refDb === "number" && isFinite(d.refDb)) {
         this.refDb = Math.max(60, Math.min(120, d.refDb));
       }
       if (SPEEDS[d.speed]) this.setSpeed(d.speed);
     };
+    apply(options?.processorOptions || {});
+    this.port.onmessage = (e) => apply(e.data || {});
   }
 
   setSpeed(name) {
