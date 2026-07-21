@@ -97,7 +97,7 @@
   uploading — a cloud image is subject to that provider's terms of service
   and privacy policy.</p>
   <div class="extract-controls">
-    <input type="file" id="photo" accept="image/*" />
+    <input type="file" id="photo" accept="image/*" aria-label="Hearing test report photo" />
     <button id="extract">Extract thresholds</button>
     <span id="busy">reading chart…</span>
   </div>
@@ -152,6 +152,7 @@
   </ol>
   <div class="extract-controls">
     <button id="anchorTone" class="ghost">Play anchor tone</button>
+    <label for="anchorLabel">Setup name</label>
     <input id="anchorLabel" type="text" placeholder="e.g. laptop + wired headphones"
       style="flex:1; padding:6px 8px; border:1px solid var(--grid); border-radius:6px; font:inherit;" />
     <button id="anchorSave">Save anchor</button>
@@ -189,7 +190,7 @@
   measures your actual playback response with a USB measurement mic and
   writes a correction JSON — import it here.</p>
   <div class="extract-controls">
-    <input type="file" id="micFile" accept="application/json,.json" />
+    <input type="file" id="micFile" accept="application/json,.json" aria-label="Microphone correction JSON" />
     <button id="micClear" class="ghost">Clear mic correction</button>
     <span class="sub" id="micStatus"></span>
   </div>

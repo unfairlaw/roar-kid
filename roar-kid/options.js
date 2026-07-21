@@ -45,6 +45,9 @@ const clean = (arr) => arr.map((x) => Math.round(Math.max(-10, Math.min(70, x)) 
 // marked, and Apply never becomes available for that extraction.
 const SCOPE_MAX_DB_HL = 70;
 const hzLabel = (f) => (f >= 1000 ? f / 1000 + " kHz" : f + " Hz");
+// For user-typed text interpolated into an HTML attribute (anchor labels).
+const escAttr = (s) =>
+  s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 // Shared staging for both extraction paths (BYOK cloud and on-device):
 // gap-fill, detect out-of-scope thresholds, and only clamp when in scope —
@@ -520,6 +523,7 @@ function stopTone() {
   toneBand = null;
   for (const b of document.querySelectorAll("#toneRows button")) {
     b.textContent = "play";
+    b.setAttribute("aria-label", `Play ${hzLabel(BANDS[+b.dataset.band])} test tone`);
   }
 }
 
@@ -535,7 +539,9 @@ function playTone(i) {
   toneOsc.connect(toneGain).connect(toneCtx.destination);
   toneOsc.start();
   toneBand = i;
-  document.querySelectorAll("#toneRows button")[i].textContent = "stop";
+  const btn = document.querySelectorAll("#toneRows button")[i];
+  btn.textContent = "stop";
+  btn.setAttribute("aria-label", `Stop ${hzLabel(BANDS[i])} test tone`);
 }
 
 function renderToneRows() {
@@ -543,10 +549,11 @@ function renderToneRows() {
     const anchor = f === 1000;
     const v = anchor ? 0 : (calibration.userOffsets?.[i] || 0);
     return `<div class="keyrow">
-      <label class="mono">${f >= 1000 ? f / 1000 + " kHz" : f + " Hz"}${anchor ? " ⚓" : ""}</label>
-      <button class="ghost" data-band="${i}">play</button>
-      <input type="range" data-band="${i}" min="-12" max="12" step="1"
-        value="${v}" ${anchor ? "disabled" : ""} style="flex:1;" />
+      <label class="mono" for="toneBand-${i}">${hzLabel(f)}${anchor ? " ⚓" : ""}</label>
+      <button class="ghost" data-band="${i}" aria-label="Play ${hzLabel(f)} test tone">play</button>
+      <input type="range" id="toneBand-${i}" data-band="${i}" min="-12" max="12" step="1"
+        value="${v}" ${anchor ? "disabled" : ""} style="flex:1;"
+        aria-describedby="toneVal-${i}" />
       <span class="mono" id="toneVal-${i}" style="width:44px; text-align:right;">${v > 0 ? "+" + v : v} dB</span>
     </div>`;
   });
@@ -669,7 +676,7 @@ async function renderAnchors() {
       `<div class="keyrow"><span class="sub" style="flex:1;">` +
       `${a.label || "unnamed"} — ${new Date(a.when).toLocaleDateString()}` +
       `${s === sig ? " (current device)" : ""}</span>` +
-      `<button class="ghost" data-sig="${encodeURIComponent(s)}">remove</button></div>`)
+      `<button class="ghost" data-sig="${encodeURIComponent(s)}" aria-label="Remove anchor ${escAttr(a.label || "unnamed")}">remove</button></div>`)
     .join("");
   for (const b of $("anchorList").querySelectorAll("button")) {
     b.onclick = async () => {
