@@ -169,31 +169,48 @@ for (const b of document.querySelectorAll("#speedToggle button")) {
 // Live level/dose from the content script's limiter metering. Absolute
 // numbers appear ONLY when a per-device loudness anchor exists (SR-3);
 // un-anchored, the display says "relative" instead of guessing. The same
-// line surfaces the degraded-fallback indicator (SR-5) and a stale-anchor
-// flag when the output device changed (FR-3.4).
+// line surfaces the degraded-fallback indicator (SR-5), a stale-anchor
+// flag when the output device changed (FR-3.4), the anchor-derived child
+// peak cap when one is in effect, and an escalating warning as the weekly
+// dose crosses 80% and 100% of the H.870 reference.
+const doseEl = document.getElementById("dose");
+const doseBaseTitle = doseEl.title;
 function pollDose() {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
     if (!tab?.id) return;
     chrome.tabs.sendMessage(tab.id, { type: "roar-dose" }, (r) => {
-      const el = document.getElementById("dose");
+      const el = doseEl;
       // The legacy fallback limiter has no meter port, so metering stays
       // false there — but its degraded state must still be surfaced.
       if (chrome.runtime.lastError || !r?.ok || (!r.metering && !r.degraded)) {
         el.textContent = "";
         el.className = "mono";
+        el.title = doseBaseTitle;
         return;
       }
       const parts = [];
+      let cls = "mono";
       if (r.degraded) parts.push("⚠ fallback limiter");
       if (r.metering && !r.anchored) {
         parts.push("relative — no anchor");
       } else if (r.metering) {
         const lvl = r.levelDb == null ? "—" : `~${Math.round(r.levelDb)} dB est`;
         parts.push(`${lvl} · dose ${r.dosePct < 0.1 ? "<0.1" : r.dosePct.toFixed(1)}%`);
+        if (r.dosePct >= 100) parts.push("⚠ over the weekly reference");
+        else if (r.dosePct >= 80) parts.push("nearing the weekly reference");
         if (r.anchorStale) parts.push("anchor stale");
+        if (r.childCeilingAnchored) parts.push("≈85 dB peak cap");
       }
+      if (r.dosePct >= 100) cls = "mono alert";
+      else if (r.dosePct >= 80 || r.degraded || r.anchorStale) cls = "mono warn";
       el.textContent = parts.join(" · ");
-      el.className = r.degraded || r.anchorStale ? "mono warn" : "mono";
+      el.className = cls;
+      el.title = r.childCeilingAnchored
+        ? doseBaseTitle +
+          " The child-mode peak cap is derived from the loudness anchor:" +
+          " peaks correspond to ≈85 dB SPL at the system volume the anchor" +
+          " was set at, and changing system volume shifts the real level."
+        : doseBaseTitle;
     });
   });
 }

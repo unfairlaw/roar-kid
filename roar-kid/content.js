@@ -36,8 +36,12 @@ const state = {
   // this machine, else null — and while null the system is RELATIVE, so
   // absolute level/dose numbers are suppressed, not estimated.
   anchor: null,
-  // listening-dose accounting (fed by the limiter's meter messages)
-  dose: { fraction: 0, levelDb: null, since: Date.now(), metering: false },
+  // True while the limiter ceiling in effect was derived from a fresh
+  // anchor in child mode (surfaced by the popup with its volume caveat).
+  childCeilingAnchored: false,
+  // listening-dose accounting (fed by the limiter's meter messages);
+  // `pending` is the fraction accrued since the last storage flush.
+  dose: { fraction: 0, pending: 0, levelDb: null, since: Date.now(), metering: false },
 };
 
 const DEFAULTS = {
@@ -83,15 +87,25 @@ function applySettings(s) {
   const childActive = s.targetMode === "child" && s.childMode?.unlocked;
   const mode = s.targetMode === "child" && !childActive ? "comfort" : s.targetMode;
 
-  // Child mode runs under a reduced output ceiling. The limiter clamps any
-  // request to −1 dBFS or lower, so this message can only ever lower it.
+  // Child mode runs under a reduced output ceiling. With a fresh (non-
+  // stale) anchor the ceiling is derived from it — peaks land at
+  // CHILD_PEAK_TARGET_DBSPL under the anchored mapping — which is only
+  // meaningful at the system volume the anchor was set at (the popup says
+  // so). childCeilingDb() can only tighten the fixed −7 dBFS child
+  // ceiling, and the limiter clamps any request to −1 dBFS or lower, so
+  // these messages can only ever lower the ceiling.
+  const anchoredChild = childActive && state.anchor && !state.anchor.stale;
+  const childDb = anchoredChild
+    ? DSP.childCeilingDb(state.anchor.refDb)
+    : DSP.CHILD_CEILING_DB;
+  state.childCeilingAnchored = anchoredChild;
   if (state.limiter) {
     state.limiter.port.postMessage({
-      ceilingDb: childActive ? DSP.CHILD_CEILING_DB : DSP.CEILING_DB,
+      ceilingDb: childActive ? childDb : DSP.CEILING_DB,
     });
   } else if (state.legacyLimiter) {
     state.legacyLimiter.threshold.value =
-      -3 + (childActive ? DSP.CHILD_CEILING_DB - DSP.CEILING_DB : 0);
+      -3 + (childActive ? childDb - DSP.CEILING_DB : 0);
   }
 
   const cal = DSP.calibrationOffsets(s.calibration);
@@ -140,7 +154,17 @@ function applySettings(s) {
 // un-anchored point estimate can be wrong by 10–20 dB across hardware, so
 // until anchoring the system reports itself as relative and no number is
 // shown. Dose reference: ITU-T H.870 Mode 2 (children/conservative): 100%
-// weekly dose = 75 dBA for 40 h. Resets per page load.
+// weekly dose = 75 dBA for 40 h.
+//
+// The dose is a WEEKLY figure, so it must survive page loads: it is
+// persisted in chrome.storage.local under fixed 7-day blocks (epoch-
+// aligned — the block boundary is arbitrary but consistent) and restored
+// on startup. Tabs flush their accrued increment read-modify-write every
+// few seconds, so concurrent tabs add up instead of clobbering each
+// other, and each flush pulls the other tabs' contributions back in.
+const WEEK_MS = 7 * 24 * 3600 * 1000;
+const doseWeek = () => Math.floor(Date.now() / WEEK_MS);
+
 function onMeter(msg) {
   const { msq, dt } = msg;
   state.dose.metering = true;
@@ -148,9 +172,39 @@ function onMeter(msg) {
   const level = 10 * Math.log10(msq) + state.anchor.refDb;
   state.dose.levelDb = level;
   if (level > 40) {
-    state.dose.fraction += (dt / (40 * 3600)) * Math.pow(10, (level - 75) / 10);
+    const inc = (dt / (40 * 3600)) * Math.pow(10, (level - 75) / 10);
+    state.dose.fraction += inc;
+    state.dose.pending += inc;
   }
 }
+
+async function restoreDose() {
+  const { doseLog } = await chrome.storage.local.get("doseLog");
+  if (doseLog && doseLog.week === doseWeek() && isFinite(doseLog.fraction)) {
+    // += so metering that landed before this read is not lost.
+    state.dose.fraction += doseLog.fraction;
+    state.dose.since = doseLog.since || state.dose.since;
+  }
+}
+restoreDose();
+
+async function flushDose() {
+  const inc = state.dose.pending;
+  if (!(inc > 0)) return;
+  state.dose.pending = 0;
+  const week = doseWeek();
+  const { doseLog } = await chrome.storage.local.get("doseLog");
+  const base =
+    doseLog && doseLog.week === week && isFinite(doseLog.fraction)
+      ? doseLog
+      : { week, fraction: 0, since: Date.now() };
+  base.fraction += inc;
+  await chrome.storage.local.set({ doseLog: base });
+  // Adopt the merged total: picks up other tabs and the weekly reset.
+  state.dose.fraction = base.fraction + state.dose.pending;
+  state.dose.since = base.since;
+}
+setInterval(flushDose, 5000);
 
 // ------------------------------------------------------ loudness anchor
 // Anchors are saved by the options page in chrome.storage.local, keyed by
@@ -188,6 +242,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       levelDb: state.anchor ? state.dose.levelDb : null,
       dosePct: state.anchor ? state.dose.fraction * 100 : null,
       sinceMs: Date.now() - state.dose.since,
+      childCeilingAnchored: state.childCeilingAnchored,
     });
   }
   return false;

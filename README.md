@@ -102,7 +102,7 @@ Detailed local-testing steps and L/R troubleshooting are in
 ## Testing
 
 The DSP itself — crossover, WDRC, limiter, calibration math — is covered by
-an 18-check harness in [`tests/test.js`](tests/test.js), run headlessly with
+a 20-check harness in [`tests/test.js`](tests/test.js), run headlessly with
 real Web Audio (`OfflineAudioContext` and, for T7, a live `AudioContext`), no
 build step or framework:
 

@@ -12,9 +12,12 @@
 //       bursts) must never produce a sample above the ceiling. Sample-
 //       accurate assertion. Also: the child ceiling holds, a message
 //       trying to RAISE the ceiling is clamped to the −1 dBFS guarantee,
-//       and the legacy DynamicsCompressorNode fallback graph (used when
+//       the legacy DynamicsCompressorNode fallback graph (used when
 //       AudioWorklet fails to load) stays within a bounded overshoot of
-//       its own threshold under the same worst-case input (SR-1).
+//       its own threshold under the same worst-case input (SR-1), and the
+//       anchor-derived child ceiling (childCeilingDb) maps peaks to the
+//       85 dB SPL target, can only tighten the fixed −7 dBFS child
+//       ceiling, and holds in the limiter under worst-case input.
 //   T5  Calibration round-trip: known shape corrections in → the expected
 //       combined, clamped per-band offsets out (NFR-T.4).
 //   T6  End-to-end latency of the full chain (crossover + WDRC + limiter
@@ -381,6 +384,28 @@ async function testLimiter() {
     legacyPeak <= legacyBound,
     `peak ${legacyPeak.toFixed(6)} (${(20 * Math.log10(legacyPeak)).toFixed(1)} dBFS) ` +
       `vs threshold ${legacyThreshold.toFixed(6)} (-3 dBFS), bound +${legacyMarginDb} dB`
+  );
+
+  // T4e: the anchor-derived child ceiling. Under the standard anchor
+  // (refDb = anchorRefDb() ≈ 94) peaks must map to CHILD_PEAK_TARGET_DBSPL,
+  // and no refDb — however wrong — may ever RELAX the fixed child ceiling.
+  const anchoredDb = DSP.childCeilingDb(DSP.anchorRefDb());
+  check(
+    "T4e anchor-derived child ceiling = peak target minus refDb, never above −7",
+    anchoredDb === DSP.CHILD_PEAK_TARGET_DBSPL - DSP.anchorRefDb() &&
+      anchoredDb <= DSP.CHILD_CEILING_DB &&
+      DSP.childCeilingDb(60) === DSP.CHILD_CEILING_DB &&
+      DSP.childCeilingDb(NaN) === DSP.CHILD_CEILING_DB,
+    `childCeilingDb(${DSP.anchorRefDb()}) = ${anchoredDb} dBFS`
+  );
+
+  // T4f: that derived ceiling holds in the limiter under worst-case input.
+  const anchoredCeil = Math.pow(10, anchoredDb / 20);
+  const anchoredPeak = await worstCasePeak(anchoredDb);
+  check(
+    "T4f anchor-derived child ceiling holds under worst-case input",
+    anchoredPeak <= anchoredCeil + 1e-6,
+    `peak ${anchoredPeak.toFixed(6)} vs ceiling ${anchoredCeil.toFixed(6)}`
   );
 }
 

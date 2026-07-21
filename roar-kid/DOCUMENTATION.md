@@ -78,8 +78,10 @@ purpose: no gain stage anywhere in the graph can push output past the
 ceiling. The limiter is always active and is a safety requirement, not a
 feature. Its ceiling is adjustable in one direction only: a construction
 option or port message can *lower* it (the attestation-gated child target
-runs at −7 dBFS) but any request above −1 dBFS is clamped — the guarantee
-is structural, and the harness asserts a raise attempt has no effect. If
+runs at −7 dBFS, or lower still when a fresh loudness anchor allows an
+anchor-derived ceiling — see below) but any request above −1 dBFS is
+clamped — the guarantee is structural, and the harness asserts a raise
+attempt has no effect. If
 AudioWorklet modules cannot load, the script falls back to the previous
 `DynamicsCompressorNode` graph (same crossover, compressor-based
 limiting): degraded, never unlimited — and the popup surfaces a visible
@@ -90,14 +92,21 @@ The limiter also meters its own output. When — and only when — a loudness
 anchor exists for the current output device, the content script converts
 the metered level into an estimated listening dose using the conservative
 mode of Recommendation ITU-T H.870 (100% weekly dose = 75 dBA for 40 h),
-and the popup shows the running figure, marked as an estimate. Without an
-anchor the system is honest about being *relative*: the popup shows
-"relative — no anchor" instead of a number, because an authoritative-
-looking level derived from an unmeasured assumption can be wrong by
-10–20 dB across laptop/headphone combinations. If the machine's output
-devices change after anchoring, the readout is flagged stale until the
-anchor is redone. None of this is a substitute for keeping device volume
-moderate.
+and the popup shows the running figure, marked as an estimate. Because
+the dose is a weekly quantity, it is persisted in `chrome.storage.local`
+in fixed 7-day blocks rather than resetting per page load: tabs flush
+their accrued increment every few seconds read-modify-write, so
+concurrent tabs accumulate into one figure, and the block rolls over
+weekly. The popup readout escalates as the figure grows — at 80% of the
+weekly reference it flags "nearing the weekly reference", and at 100% it
+switches to an emphasized "over the weekly reference" warning — instead
+of remaining a passive number. Without an anchor the system is honest
+about being *relative*: the popup shows "relative — no anchor" instead of
+a number, because an authoritative-looking level derived from an
+unmeasured assumption can be wrong by 10–20 dB across laptop/headphone
+combinations. If the machine's output devices change after anchoring, the
+readout is flagged stale until the anchor is redone. None of this is a
+substitute for keeping device volume moderate.
 
 The end-to-end processing latency of the full chain — crossover group
 delay, WDRC block processing, and the limiter's 3 ms look-ahead — is
@@ -147,9 +156,16 @@ unlocks only through an explicit attestation on the options page — "an
 audiologist has reviewed this child's audiogram and verified these
 settings for this child" — and, when active, the output ceiling drops
 from −1 to −7 dBFS (the limiter clamps any request so the ceiling can
-only ever be lowered). Without the attestation, a stored "child"
-selection behaves as comfort and the popup shows what is actually
-applied.
+only ever be lowered). When a fresh (non-stale) loudness anchor exists,
+the child ceiling is derived from it instead: peaks are capped where the
+anchored mapping puts 85 dB SPL (`childCeilingDb`, ≈ −9 dBFS under the
+standard anchor), and the derivation can only *tighten* the fixed
+−7 dBFS ceiling, never relax it. The popup then shows "≈85 dB peak cap"
+with the honest caveat that the cap is only meaningful at the system
+volume the anchor was set at — changing system volume shifts the real
+level, which is why this is a mitigation, not a guarantee. Without the
+attestation, a stored "child" selection behaves as comfort and the popup
+shows what is actually applied.
 
 Both named targets are explicitly *approximations inspired by* NAL and
 DSL; the genuine NAL-NL2 and DSL v5.0 formulas are proprietary,

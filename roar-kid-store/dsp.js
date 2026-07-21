@@ -45,6 +45,17 @@
   // any requested ceiling to CEILING_DB or lower; it can never be raised.
   const CHILD_CEILING_DB = -7;
 
+  // Anchor-derived child ceiling: with a fresh loudness anchor the fixed
+  // CHILD_CEILING_DB can be replaced by the ceiling that puts peaks at
+  // CHILD_PEAK_TARGET_DBSPL *under that anchor's mapping*. Only valid at
+  // the system volume the anchor was set at — the UI must say so — and it
+  // may only ever tighten the fixed child ceiling, never relax it.
+  const CHILD_PEAK_TARGET_DBSPL = 85;
+  const childCeilingDb = (refDb) =>
+    typeof refDb === "number" && isFinite(refDb)
+      ? Math.min(CHILD_CEILING_DB, CHILD_PEAK_TARGET_DBSPL - refDb)
+      : CHILD_CEILING_DB;
+
   // WDRC detector time constants, user-selectable (popup): fast/syllabic
   // tracks within-word level changes, slow rides the longer-term envelope.
   // Genuinely contested in the literature, hence an exposed choice — the
@@ -232,6 +243,8 @@
     MAX_BAND_GAIN_DB,
     CEILING_DB,
     CHILD_CEILING_DB,
+    CHILD_PEAK_TARGET_DBSPL,
+    childCeilingDb,
     WDRC_SPEEDS,
     HEADPHONE_PROFILES,
     ANCHOR_TONE_AMP,
