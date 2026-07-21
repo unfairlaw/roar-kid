@@ -56,6 +56,31 @@
       ? Math.min(CHILD_CEILING_DB, CHILD_PEAK_TARGET_DBSPL - refDb)
       : CHILD_CEILING_DB;
 
+  // Adult analogue: uncomfortable-loudness levels for losses inside this
+  // tool's ≤70 dB HL scope cluster around 100–105 dB SPL (Sherlock &
+  // Formby 2005 normative LDLs; the FDA OTC hearing-aid rule hard-caps
+  // output at 111 dB SPL), so anchored adult peaks are capped where the
+  // mapping puts 102 dB SPL. Under the standard anchor (refDb ≈ 94) that
+  // resolves above −1 dBFS, so this is normally a no-op — it engages only
+  // when an anchor implies unusually high SPL at full scale, and like
+  // childCeilingDb it can only tighten the fixed ceiling, never relax it.
+  const ADULT_PEAK_TARGET_DBSPL = 102;
+  const adultCeilingDb = (refDb) =>
+    typeof refDb === "number" && isFinite(refDb)
+      ? Math.min(CEILING_DB, ADULT_PEAK_TARGET_DBSPL - refDb)
+      : CEILING_DB;
+
+  // Transient guard (the limiter worklet keeps its own copy of these):
+  // sudden events more than GUARD_HEADROOM_DB above the running program
+  // level — a movie explosion after quiet dialogue — are capped mid-event,
+  // the mechanism commercial impulse-noise reduction uses (fast-vs-slow
+  // envelope comparison). 15 dB headroom leaves the ~12 dB crest factor of
+  // speech untouched; the cap never cuts more than GUARD_MAX_CUT_DB below
+  // the static ceiling, inside the 3–15 dB range published for those
+  // systems, and relaxes as the program level catches up.
+  const GUARD_HEADROOM_DB = 15;
+  const GUARD_MAX_CUT_DB = 10;
+
   // WDRC detector time constants, user-selectable (popup): fast/syllabic
   // tracks within-word level changes, slow rides the longer-term envelope.
   // Genuinely contested in the literature, hence an exposed choice — the
@@ -245,6 +270,10 @@
     CHILD_CEILING_DB,
     CHILD_PEAK_TARGET_DBSPL,
     childCeilingDb,
+    ADULT_PEAK_TARGET_DBSPL,
+    adultCeilingDb,
+    GUARD_HEADROOM_DB,
+    GUARD_MAX_CUT_DB,
     WDRC_SPEEDS,
     HEADPHONE_PROFILES,
     ANCHOR_TONE_AMP,

@@ -81,7 +81,29 @@ option or port message can *lower* it (the attestation-gated child target
 runs at −7 dBFS, or lower still when a fresh loudness anchor allows an
 anchor-derived ceiling — see below) but any request above −1 dBFS is
 clamped — the guarantee is structural, and the harness asserts a raise
-attempt has no effect. If
+attempt has no effect.
+
+On top of the static ceiling the limiter runs a **transient guard** for
+sudden loud events — a movie explosion landing after quiet dialogue. A
+slew-rate-limited tracker follows the running program level in dB, and
+any incoming peak more than 15 dB above it (speech's own ~12 dB crest
+factor stays untouched) is capped mid-event, at most 10 dB below the
+static ceiling — the same fast-versus-slow-envelope mechanism and
+attenuation range commercial hearing-aid impulse-noise reduction uses.
+The cap relaxes at 30 dB/s once the level proves sustained, because
+sustained loudness is the static ceiling's and the dose model's domain,
+not the guard's; the tracker's dB slew limit (rather than an exponential
+envelope, which would re-open within milliseconds against a full-scale
+event) is what makes the cap actually hold through an event's onset. The
+guard only lowers what the gain computer aims for — the sample-accurate
+hard clamp stays at the static ceiling, so the structural guarantee is
+unchanged. When a fresh anchor exists, the adult static ceiling is
+additionally bounded where the anchored mapping puts 102 dB SPL peaks, a
+target chosen from the loudness-discomfort literature for losses inside
+this tool's ≤70 dB HL scope (normative UCLs cluster at 100–105 dB SPL;
+the FDA's OTC hearing-aid rule hard-caps output at 111 dB SPL) — under
+the standard anchor this resolves above −1 dBFS and is a no-op, and like
+the child derivation it can only ever tighten. If
 AudioWorklet modules cannot load, the script falls back to the previous
 `DynamicsCompressorNode` graph (same crossover, compressor-based
 limiting): degraded, never unlimited — and the popup surfaces a visible

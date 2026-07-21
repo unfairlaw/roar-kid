@@ -14,10 +14,15 @@
 //       trying to RAISE the ceiling is clamped to the −1 dBFS guarantee,
 //       the legacy DynamicsCompressorNode fallback graph (used when
 //       AudioWorklet fails to load) stays within a bounded overshoot of
-//       its own threshold under the same worst-case input (SR-1), and the
+//       its own threshold under the same worst-case input (SR-1), the
 //       anchor-derived child ceiling (childCeilingDb) maps peaks to the
 //       85 dB SPL target, can only tighten the fixed −7 dBFS child
-//       ceiling, and holds in the limiter under worst-case input.
+//       ceiling, and holds in the limiter under worst-case input; the
+//       adult anchored ceiling (adultCeilingDb, UCL-derived 102 dB SPL)
+//       is a no-op at the standard anchor and can never relax −1 dBFS;
+//       and the transient guard caps a sudden full-scale event near
+//       10 dB below the ceiling mid-event, leaves quiet program content
+//       untouched, and relaxes once the level proves sustained.
 //   T5  Calibration round-trip: known shape corrections in → the expected
 //       combined, clamped per-band offsets out (NFR-T.4).
 //   T6  End-to-end latency of the full chain (crossover + WDRC + limiter
@@ -406,6 +411,88 @@ async function testLimiter() {
     "T4f anchor-derived child ceiling holds under worst-case input",
     anchoredPeak <= anchoredCeil + 1e-6,
     `peak ${anchoredPeak.toFixed(6)} vs ceiling ${anchoredCeil.toFixed(6)}`
+  );
+
+  // T4g: the adult anchored ceiling (UCL-derived 102 dB SPL peak target).
+  // Under the standard anchor it must be a no-op (−1 dBFS), it must
+  // tighten for an anchor implying high SPL at full scale, and no refDb
+  // may ever relax the −1 dBFS ceiling.
+  check(
+    "T4g adult anchored ceiling: no-op at standard anchor, tightens, never relaxes",
+    DSP.adultCeilingDb(DSP.anchorRefDb()) === DSP.CEILING_DB &&
+      DSP.adultCeilingDb(110) === DSP.ADULT_PEAK_TARGET_DBSPL - 110 &&
+      DSP.adultCeilingDb(60) === DSP.CEILING_DB &&
+      DSP.adultCeilingDb(NaN) === DSP.CEILING_DB,
+    `adultCeilingDb(${DSP.anchorRefDb()}) = ${DSP.adultCeilingDb(DSP.anchorRefDb())}, ` +
+      `adultCeilingDb(110) = ${DSP.adultCeilingDb(110)} dBFS`
+  );
+
+  await testTransientGuard();
+}
+
+// T4h: the transient guard. Quiet dialogue-level content followed by a
+// full-scale "explosion": the event's onset must be capped near
+// GUARD_MAX_CUT_DB below the static ceiling, the quiet content itself
+// must pass untouched, and once the event sustains, the guard must relax
+// back to the static ceiling (sustained loudness is the static ceiling's
+// and the dose model's job, not the guard's).
+async function testTransientGuard() {
+  const len = Math.round(3.5 * FS);
+  const ctx = new OfflineAudioContext(1, len, FS);
+  await ctx.audioWorklet.addModule("../roar-kid/worklets/limiter.js");
+  const buf = ctx.createBuffer(1, len, FS);
+  const d = buf.getChannelData(0);
+  const toneAmp = Math.pow(10, -27 / 20); // sine peak −27 dBFS ≈ RMS −30
+  for (let i = 0; i < len; i++) {
+    const t = i / FS;
+    d[i] =
+      t < 1.0
+        ? toneAmp * Math.sin(2 * Math.PI * 500 * t) // quiet "dialogue"
+        : Math.sign(Math.sin(2 * Math.PI * 97 * t)); // full-scale "explosion"
+  }
+  const src = new AudioBufferSourceNode(ctx, { buffer: buf });
+  const limiter = new AudioWorkletNode(ctx, "roar-limiter", {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [2],
+    channelCount: 2,
+    channelCountMode: "explicit",
+  });
+  src.connect(limiter).connect(ctx.destination);
+  src.start();
+  const out = (await ctx.startRendering()).getChannelData(0);
+  const peakIn = (a, b) => {
+    let p = 0;
+    for (let i = Math.round(a * FS); i < Math.round(b * FS); i++) {
+      const v = Math.abs(out[i]);
+      if (v > p) p = v;
+    }
+    return p;
+  };
+  const ceiling = Math.pow(10, DSP.CEILING_DB / 20);
+  const guardFloor = ceiling * Math.pow(10, -DSP.GUARD_MAX_CUT_DB / 20);
+
+  const tonePeak = peakIn(0.5, 0.95);
+  check(
+    "T4h1 transient guard leaves quiet program content untouched",
+    Math.abs(tonePeak - toneAmp) < toneAmp * 0.05,
+    `quiet-tone peak ${tonePeak.toFixed(4)} vs input ${toneAmp.toFixed(4)}`
+  );
+
+  // Onset window starts after the 3 ms look-ahead delay flushes.
+  const onsetPeak = peakIn(1.005, 1.06);
+  check(
+    "T4h2 sudden full-scale event is capped mid-execution near the guard floor",
+    onsetPeak <= guardFloor * Math.pow(10, 1.5 / 20),
+    `onset peak ${onsetPeak.toFixed(4)} (${(20 * Math.log10(onsetPeak)).toFixed(1)} dBFS) ` +
+      `vs floor ${guardFloor.toFixed(4)} (${(DSP.CEILING_DB - DSP.GUARD_MAX_CUT_DB).toFixed(0)} dBFS), slack 1.5 dB`
+  );
+
+  const latePeak = peakIn(3.0, 3.45);
+  check(
+    "T4h3 guard relaxes on sustained level — static ceiling governs again",
+    latePeak >= ceiling * Math.pow(10, -1 / 20) && latePeak <= ceiling + 1e-6,
+    `late peak ${latePeak.toFixed(4)} vs ceiling ${ceiling.toFixed(4)}`
   );
 }
 

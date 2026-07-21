@@ -87,25 +87,26 @@ function applySettings(s) {
   const childActive = s.targetMode === "child" && s.childMode?.unlocked;
   const mode = s.targetMode === "child" && !childActive ? "comfort" : s.targetMode;
 
-  // Child mode runs under a reduced output ceiling. With a fresh (non-
-  // stale) anchor the ceiling is derived from it — peaks land at
-  // CHILD_PEAK_TARGET_DBSPL under the anchored mapping — which is only
-  // meaningful at the system volume the anchor was set at (the popup says
-  // so). childCeilingDb() can only tighten the fixed −7 dBFS child
-  // ceiling, and the limiter clamps any request to −1 dBFS or lower, so
-  // these messages can only ever lower the ceiling.
-  const anchoredChild = childActive && state.anchor && !state.anchor.stale;
-  const childDb = anchoredChild
-    ? DSP.childCeilingDb(state.anchor.refDb)
-    : DSP.CHILD_CEILING_DB;
-  state.childCeilingAnchored = anchoredChild;
+  // Output ceiling. With a fresh (non-stale) anchor it is derived from
+  // the anchored mapping — peaks land at the child (85 dB SPL) or adult
+  // (102 dB SPL, UCL-derived) peak target — which is only meaningful at
+  // the system volume the anchor was set at (the popup says so). The
+  // adult derivation is normally a no-op (see dsp.js). Both derivations
+  // can only tighten their fixed ceilings, and the limiter clamps any
+  // request to −1 dBFS or lower, so these messages only ever lower it.
+  const anchoredFresh = !!state.anchor && !state.anchor.stale;
+  const ceilDb = childActive
+    ? anchoredFresh
+      ? DSP.childCeilingDb(state.anchor.refDb)
+      : DSP.CHILD_CEILING_DB
+    : anchoredFresh
+      ? DSP.adultCeilingDb(state.anchor.refDb)
+      : DSP.CEILING_DB;
+  state.childCeilingAnchored = childActive && anchoredFresh;
   if (state.limiter) {
-    state.limiter.port.postMessage({
-      ceilingDb: childActive ? childDb : DSP.CEILING_DB,
-    });
+    state.limiter.port.postMessage({ ceilingDb: ceilDb });
   } else if (state.legacyLimiter) {
-    state.legacyLimiter.threshold.value =
-      -3 + (childActive ? childDb - DSP.CEILING_DB : 0);
+    state.legacyLimiter.threshold.value = -3 + (ceilDb - DSP.CEILING_DB);
   }
 
   const cal = DSP.calibrationOffsets(s.calibration);
