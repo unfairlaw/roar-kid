@@ -73,6 +73,18 @@ function migrateBands(arr) {
 
 const dbToLinear = (db) => Math.pow(10, db / 20);
 
+// Tab-badge state report (background.js turns it into the "ON" badge).
+// Transitions only; a failed send (e.g. the extension was reloaded under
+// this page) is irrelevant to playback and ignored.
+let lastReportedActive = null;
+function reportActive(active) {
+  if (active === lastReportedActive) return;
+  lastReportedActive = active;
+  try {
+    chrome.runtime.sendMessage({ type: "roar-active", active }).catch(() => {});
+  } catch {}
+}
+
 function applySettings(s) {
   if (!state.ctx || !state.source) return;
   s.left = migrateBands(s.left);
@@ -81,6 +93,7 @@ function applySettings(s) {
   // True bypass when disabled: route around the filterbank entirely.
   state.source.disconnect();
   state.source.connect(s.enabled ? state.chainInput : state.masterGain);
+  reportActive(s.enabled);
 
   // SR-2 gate: the child target only ever takes effect with the
   // audiologist attestation on record; otherwise fall back to comfort.

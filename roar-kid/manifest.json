@@ -16,6 +16,9 @@
     "https://api.x.ai/*"
   ],
   "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": [
