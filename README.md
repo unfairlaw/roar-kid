@@ -102,7 +102,7 @@ Detailed local-testing steps and L/R troubleshooting are in
 ## Testing
 
 The DSP itself — crossover, WDRC, limiter, calibration math — is covered by
-a 24-check harness in [`tests/test.js`](tests/test.js), run headlessly with
+a 32-check harness in [`tests/test.js`](tests/test.js), run headlessly with
 real Web Audio (`OfflineAudioContext` and, for T7, a live `AudioContext`), no
 build step or framework:
 
@@ -119,10 +119,14 @@ google-chrome --headless=new --no-sandbox \
 | T1 | a–h | Prescriptive curves: each target rule (comfort/adult/child) produces the stated gain, ratios stay monotone in loss, the band-gain cap holds, calibration offsets shift and clamp correctly, and adult/child land within tolerance of published NAL-R/DSL reference points (NFR-T.2). |
 | T2 | — | Signal integrity: the 8-band crossover + WDRC, fed a zero audiogram, sums flat within ±1 dB from 100 Hz–12 kHz — silence-in-the-audiogram must mean transparent-in-spirit audio out. |
 | T3 | — | WDRC behavior: at a flat 40 dB HL curve, a quiet tone gets more gain than a loud one — the entire point of wide-dynamic-range compression. |
-| T4 | a–d | Limiter: worst-case input never produces a sample above the −1 dBFS ceiling (sample-accurate), the reduced child-mode ceiling holds, a message can never raise the ceiling, and the legacy `DynamicsCompressorNode` fallback (used only if `AudioWorklet` fails to load) stays within a bounded overshoot of its own threshold — SR-1, the limiter-is-last invariant. |
+| T4 | a–h | Limiter: worst-case input never produces a sample above the −1 dBFS ceiling (sample-accurate), the reduced child-mode ceiling holds, a message can never raise the ceiling, the legacy `DynamicsCompressorNode` fallback (used only if `AudioWorklet` fails to load) stays within a bounded overshoot of its own threshold, the anchor-derived child and adult ceilings can only ever tighten and hold under worst-case input, and the transient guard caps a sudden full-scale event, spares quiet content, and relaxes once the level proves sustained — SR-1, the limiter-is-last invariant. |
 | T5 | a–b | Calibration round-trip: known headphone/tone/mic-correction offsets combine, clamp to ±12 dB, and land 1:1 in the output curves (NFR-T.4). |
 | T6 | — | End-to-end processing latency (crossover + WDRC + limiter look-ahead), measured via the impulse response's energy centroid in an `OfflineAudioContext` — asserted inside the ITU lip-sync budget (FR-2.5). |
 | T7 | — | Real A/V sync: a synthetic clip plays through the actual production graph and through an unprocessed baseline in a *live* `AudioContext`, using `requestVideoFrameCallback` and `getOutputTimestamp` to compare each against genuine video-frame display timing. The delta isolates what the extension's processing adds from the test clip's own encode jitter — the part T6's offline measurement can't reach. |
+| T8 | a–c | Distortion (CTA-2051 §5.4): residual THD+N through the full chain — everything that isn't the fundamental counts, including the WDRC's non-harmonic modulation sidebands — stays below the 5% criterion at the moderate tone points (500/800 Hz @ 70 dB SPL, 1600 Hz @ 65), at the chain's maximum achievable steady output with the limiter fully engaged, and with a 100 dB SPL-equivalent input tone. Digital path only; what the DAC and headphones add is theirs. |
+| T9 | a–c | 1/3-octave response smoothness by CTA-2051 §5.2's own local statistic — no band more than 12 dB above the mean of its neighbors ⅔ octave to either side, 250–5000 Hz — at transparency, at a representative sloping fitting, and at the steepest in-scope prescription (whose smooth slope passes the local criterion on its own terms; the band-gain cap check rides along). |
+| T10 | — | Self-generated noise (CTA-2051 §5.5): digital silence through the highest-gain in-scope fitting renders below −68 dBFS RMS (the 32 dB SPL equivalent) — expected identically zero; the chain has no noise sources, no dither, no auto-muting. |
+| T11 | — | High-frequency gain (CTA-2051 §5.6): the average measured insertion gain at 1.0/1.6/2.5 kHz with a 50 dB SPL-equivalent input at the highest-gain fitting matches the 35 dB figure published in `DOCUMENTATION.md` within ±1 dB. |
 
 ## Repository layout
 

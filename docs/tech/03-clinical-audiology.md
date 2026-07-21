@@ -90,6 +90,25 @@ limits (measured UCL/MPO per ear) that consumer headphones and full-scale
 digital audio cannot provide — that territory is deliberately, permanently
 out of scope. See the warning in the README and `DOCUMENTATION.md`.
 
+**CTA-2051 — the consumer amplification standard.** ANSI/CTA-2051-A
+(*Personal Sound Amplification Performance Criteria*) is the performance
+standard for PSAPs: pass/fail criteria for maximum output, distortion,
+self-generated noise, latency, bandwidth, and response smoothness, plus
+report-only disclosure categories (microphones, noise reduction,
+feedback control, ear coupling, personalization). It measures a complete
+acoustic device — microphone to 2cc coupler — which software can never
+be, so the project claims no conformance. Instead, each
+software-assessable criterion was translated into a digital-domain
+equivalent with its own pass threshold and asserted by the test harness
+(T8–T11 were added for this: distortion, smoothness, self-noise, and
+high-frequency gain — see the [Web Audio doc](02-web-audio-api.md)),
+and `DOCUMENTATION.md` carries the report-only disclosures: no
+microphone of any kind, no noise reduction, no feedback path, ear
+coupling is the user's own headphones. As of 2026-07-21 every
+applicable criterion is covered by a passing test or a published
+disclosure. The standard's text is copyrighted and is cited, never
+reproduced, in this repo.
+
 **ABR/BERA.** Auditory brainstem response — the objective (electrode-based)
 hearing test used for infants and toddlers, reported as a printed threshold
 table rather than a plotted chart, often with "com correção" (corrected)
@@ -107,6 +126,9 @@ real-world test case.
 - Import prompt rules (transcribe only what's on paper; `null` for
   untested frequencies; software interpolates, never the model):
   `roar-kid/prompt.txt`.
+- CTA-2051 digital-domain alignment: tests T8–T11 in `tests/test.js`;
+  disclosures and the measured 35 dB maximum-HF-gain figure in
+  `DOCUMENTATION.md`.
 
 ## Further research
 
@@ -116,6 +138,8 @@ real-world test case.
   et al., 2005.
 - ANSI S3.5 (Speech Intelligibility Index).
 - ITU-T H.870 (safe listening devices) — the dose framing.
+- ANSI/CTA-2051-A (personal sound amplification performance criteria) —
+  the engineering targets behind T8–T11.
 - Search terms: "loudness recruitment", "pure tone average", "real-ear
   measurement", "UCL MPO fitting", "auditory brainstem response threshold",
   "real-ear-to-coupler difference RECD", "NAL-NL2 vs DSL v5".

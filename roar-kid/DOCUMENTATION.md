@@ -144,6 +144,48 @@ against genuine video-frame display timing, and asserts the processing-
 added delta — not just the synthetic impulse response — stays inside the
 same lip-sync budget.
 
+The harness also checks the digital chain against ANSI/CTA-2051's
+software-assessable criteria (the PSAP performance standard, whose text
+is copyrighted — it is cited here, never reproduced).
+Distortion is asserted as residual THD+N — the fundamental is
+bin-subtracted from the steady output and everything that remains
+counts, including the non-harmonic modulation sidebands the WDRC's
+per-block gain updates produce — and stays below the standard's 5%
+criterion at the moderate tone points, at the chain's maximum
+achievable steady output with the limiter fully engaged, and with a
+100 dB SPL-equivalent input tone (T8). The 1/3-octave response is
+checked with the standard's own local-prominence statistic — no band
+more than 12 dB above the mean of its neighbors two-thirds of an octave
+to either side, over 250–5000 Hz — at transparency, at a representative
+sloping fitting, and at the steepest in-scope prescription, whose
+smooth slope passes the local criterion on its own terms (T9). Digital
+silence through the highest-gain fitting must render as silence,
+keeping the chain's own noise contribution below the standard's
+32 dB SPL-equivalent self-noise bound (T10) — the acoustic noise floor
+at the ear belongs to the playback hardware, not the chain. And the
+maximum available digital high-frequency gain — the average measured
+insertion gain at 1.0, 1.6, and 2.5 kHz with a 50 dB SPL-equivalent
+input at the highest-gain in-scope fitting — is asserted to match the
+figure published here: **35 dB**, the per-band gain cap, a
+digital-domain figure whose delivered acoustic gain depends on the
+user's headphones (T11). This is deliberately *not* a CTA-2051
+conformance claim: the standard measures a complete acoustic device
+(microphone to coupler), and its acoustic quantities — output SPL,
+acoustic bandwidth, acoustic noise floor — belong to the computer, DAC,
+and headphones the extension happens to play through, which no web page
+can measure or warrant.
+
+For the standard's report-only categories, stated here as the
+disclosures they ask for: the product contains **no microphone of any
+kind** — input is the media element's decoded audio — and therefore no
+directional or remote-microphone SNR enhancement (§5.12); **no
+noise-reduction algorithm** is included (§5.13); **no feedback
+cancellation** is included and none is needed, since without a
+microphone there is no acoustic feedback path (§5.14); and ear coupling
+is the user's own headphones — open, closed, or adjustable per whatever
+the user wears — outside the product and unreportable by the extension
+(§5.16).
+
 The reason the design uses multiband compression rather than static
 parametric EQ is loudness recruitment: a compressed usable dynamic range
 means quiet sounds need substantial gain while loud sounds need little or
