@@ -104,8 +104,11 @@ review rejects remotely hosted code.
 
 ## Assets
 
-Screenshots: five 1280×800 PNGs in `store-screenshots/`, ALL current for
-**0.5.0** (2026-07-20): 03 YouTube hero with the popup open (manual
+Screenshots: five 1280×800 PNGs in `store-screenshots/`, ALL current as of
+**0.6.0** (taken 2026-07-20, re-verified 2026-07-21): 0.6.0's only UI
+change is inside the photo-import *review* panel, which appears after an
+extraction and so is in none of these frames. 03 YouTube hero with the
+popup open (manual
 retake, avatar cropped out), 01 popup with target selector + WDRC toggle,
 02 options keys + photo import, 04 options loudness-anchor section, 05
 options calibration/response-shape section with the mic-correction
@@ -124,9 +127,12 @@ Optional small promo tile 440×280 — not made.
 5. Submit. Review for extensions with host permissions and health data
    typically takes several days; respond to any reviewer email promptly.
 
-## Updating a published release (0.5.0 over the live 0.3.0, 2026-07-20)
+## Updating a published release (0.6.0, 2026-07-21)
 
-v0.3.0 was approved and published on 2026-07-20. To ship an update:
+Confirm in the dashboard which version the item actually holds before
+uploading — 0.5.0 was built 2026-07-20 and may be published or still
+pending review. 0.6.0 is strictly greater than either, so the bump is
+safe regardless. To ship an update:
 
 1. Rebuild `roar-kid-store.zip` per `PACKAGING.md` (folder synced from
    `roar-kid/`, manifest at the archive root, no `__pycache__`). The
@@ -135,14 +141,17 @@ v0.3.0 was approved and published on 2026-07-20. To ship an update:
 2. Dashboard → the existing item → Package → **Upload new package** →
    `roar-kid-store.zip`.
 3. The item title follows the manifest name automatically ("Audiogram EQ"
-   → "Personal audio EQ" in 0.5.0). The summary, description, and
-   screenshots are dashboard fields — paste the refreshed EN and pt-BR
-   text from this file so the listing matches the new framing.
-4. 0.5.0 adds NO new permissions (`storage` and the host list are
+   → "Personal audio EQ" in 0.5.0; unchanged in 0.6.0). The summary,
+   description, and screenshots are dashboard fields. For 0.6.0 the EN and
+   pt-BR listing text below is unchanged and does not need re-pasting —
+   only do so if the live listing still carries pre-0.5.0 text. Update the
+   "Testing instructions" field, which is version-specific.
+4. 0.6.0 adds NO new permissions (`storage` and the host list are
    unchanged; `web_accessible_resources` for the worklets is not a
    permission), so no new justifications are needed and existing users get
    no re-approval prompt. The Privacy-tab disclosures still hold as
-   written.
+   written — 0.6.0 changed no data handling, and PRIVACY_POLICY.md needs
+   no edit.
 5. Submit. Updates to an approved item with unchanged permissions
    typically review faster than the initial submission; existing installs
    auto-update once published.
@@ -154,13 +163,24 @@ limiter clamps every ceiling request to ≤−1 dBFS (it can be lowered, never
 raised), level/dose readouts are suppressed until the user calibrates, and
 "Not a medical device" now appears in the manifest description itself.
 
+If a reviewer asks about 0.6.0: it is again strictly more conservative.
+A photo import containing any threshold above 70 dB HL is now refused
+outright — previously such values were clamped into range and applied, so
+the extension would amplify against a prescription it does not cover.
+The blocked preview shows the values as read, marks the offending cells,
+and offers no way to apply them. The limiter gained a transient guard,
+the dose readout became weekly and escalating rather than per-session,
+and the DSP chain was aligned with the software-assessable criteria of
+CTA-2051 (verified by the 32-check harness in `tests/`).
+
 ## Test instructions (dashboard "Testing instructions" field)
 
-The field is capped at 500 characters — paste this 498-char version
-(updated for 0.5.0: preempts "Child button greyed out" and "no level
-numbers shown" being filed as bugs — both are by design):
+The field is capped at 500 characters — paste this 497-char version
+(updated for 0.6.0: preempts "Child button greyed out", "no level numbers
+shown", and "the import refused my audiogram" being filed as bugs — all
+three are by design):
 
-No login needed. 1) Play youtube.com/watch?v=aqz-KE-bpKQ (openly licensed film). 2) Click the icon, plot points (40-50 dB HL at 2k-8k Hz is clearly audible); audio changes as you plot. Toggle "on" to A/B. Also runs on Netflix/Prime. New in 0.5.0: target selector (Child locked unless attested in options) + loudness anchor; level/dose show only after anchoring. Photo import: user's OWN key (none ships), or on-device Chrome AI where supported. Test image: icons-preview/test_audiogram.png in repo.
+No login needed. 1) Play youtube.com/watch?v=aqz-KE-bpKQ (open-licensed film). 2) Click the icon, plot points (40-50 dB HL at 2k-8k Hz is audible); audio changes as you plot. Toggle "on" to A/B. Also runs on Netflix/Prime. By design: Child target locked unless attested, level/dose only after anchoring, and (new in 0.6.0) imports with any threshold over 70 dB HL are blocked, not clamped. Import uses your OWN key (none ships) or on-device Chrome AI. Test image: icons-preview/test_audiogram.png.
 
 Fuller reference version (for reviewer email replies, too long for the field):
 
@@ -171,7 +191,7 @@ No account, login, or credentials are required for the core functionality.
 3. The audio changes immediately as points are plotted (per-ear, frequency-dependent boost with output limiting). Toggle the "on" checkbox to A/B the processed vs. original sound; the "vol" slider adjusts overall level.
 4. The same processing runs on netflix.com and primevideo.com if you have a subscription; YouTube alone demonstrates all functionality.
 
-Optional feature — photo import (options page): extracts thresholds from a photo of a hearing-test report, always shown for review before being applied. It has two paths: (a) with the user's own API key for OpenAI, Anthropic, Google, or xAI — no key ships with the extension, users bring their own, so testing this path requires any valid key for one of those providers; (b) on hardware that supports Chrome's built-in AI, an "Extract with Chrome's built-in AI" button appears and runs fully on-device with no key — this button is availability-gated by Chrome itself and will not appear on unsupported machines. A synthetic test report image is available in the public repository: https://github.com/unfairlaw/roar-kid/blob/main/icons-preview/test_audiogram.png
+Optional feature — photo import (options page): extracts thresholds from a photo of a hearing-test report, always shown for review before being applied. Since 0.6.0, an extraction containing any threshold above 70 dB HL is refused rather than applied — the preview shows the values as read, marks the out-of-range cells, and offers no Apply button, because the extension's prescriptions stop at mild-to-moderate loss. It has two paths: (a) with the user's own API key for OpenAI, Anthropic, Google, or xAI — no key ships with the extension, users bring their own, so testing this path requires any valid key for one of those providers; (b) on hardware that supports Chrome's built-in AI, an "Extract with Chrome's built-in AI" button appears and runs fully on-device with no key — this button is availability-gated by Chrome itself and will not appear on unsupported machines. A synthetic test report image is available in the public repository: https://github.com/unfairlaw/roar-kid/blob/main/icons-preview/test_audiogram.png
 
 ## Review-risk notes
 
