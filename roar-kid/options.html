@@ -47,6 +47,7 @@
   th { color: #6b675c; font-weight: 500; }
   td.r { color: var(--right-red); font-weight: 600; }
   td.l { color: var(--left-blue); font-weight: 600; }
+  td.oob { background: var(--right-red); color: #fff; }
   .note {
     background: var(--shade); border-radius: 6px; padding: 8px 10px;
     font-size: 12px; margin-top: 10px;
@@ -119,7 +120,8 @@
     <table id="tbl"></table>
     <div class="note" id="meta"></div>
     <div class="note" id="plaus" style="display:none; border-left: 3px solid var(--right-red);"></div>
-    <label style="display:flex; gap:6px; align-items:baseline; margin-top:10px;">
+    <div class="warn" id="scopeBlock" style="display:none; border-left: 3px solid var(--right-red); padding-left: 8px; margin-top: 8px;"></div>
+    <label id="reviewedRow" style="display:flex; gap:6px; align-items:baseline; margin-top:10px;">
       <input type="checkbox" id="reviewed" />
       <span>I compared every value in this table against the paper report.</span>
     </label>

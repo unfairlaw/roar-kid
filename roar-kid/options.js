@@ -37,6 +37,39 @@ async function loadPrompt() {
 // snap to clinical 5 dB grid, clamp to extension's mild-moderate scope
 const clean = (arr) => arr.map((x) => Math.round(Math.max(-10, Math.min(70, x)) / 5) * 5);
 
+// Scope screen — a hard stop, unlike the plausibility warnings below. The
+// prescription deliberately stops at mild-to-moderate loss, so an
+// audiogram with thresholds beyond 70 dB HL must not be silently clamped
+// into range and amplified as if it fit: the import is blocked, the
+// preview shows the real (unclamped) numbers with the offending cells
+// marked, and Apply never becomes available for that extraction.
+const SCOPE_MAX_DB_HL = 70;
+const hzLabel = (f) => (f >= 1000 ? f / 1000 + " kHz" : f + " Hz");
+
+// Shared staging for both extraction paths (BYOK cloud and on-device):
+// gap-fill, detect out-of-scope thresholds, and only clamp when in scope —
+// a blocked preview must show what the chart actually says.
+function stagePending(raw) {
+  const right = fillGaps(raw.right);
+  const left = fillGaps(raw.left);
+  // Blocked previews show values as read (integer, no 5 dB snap): a 72
+  // snapped to 70 would display as in-scope while the block cites 72.
+  const snap = (arr) => arr.map((x) => Math.round(x));
+  const outOfScope = [];
+  for (const [ear, vals] of [["right", right.out], ["left", left.out]]) {
+    vals.forEach((v, i) => {
+      if (v > SCOPE_MAX_DB_HL) outOfScope.push(`${ear} ${hzLabel(BANDS[i])}: ${Math.round(v)}`);
+    });
+  }
+  pending = {
+    right: outOfScope.length ? snap(right.out) : clean(right.out),
+    left: outOfScope.length ? snap(left.out) : clean(left.out),
+    outOfScope,
+    inferred: [...new Set([...right.inferred, ...left.inferred])],
+    meta: raw,
+  };
+}
+
 // The model transcribes; inference is our job. Fill untested (null)
 // frequencies from tested neighbors, deterministically.
 function fillGaps(vals) {
@@ -326,14 +359,7 @@ $("extract").onclick = async () => {
   try {
     await loadPrompt();
     const raw = await EXTRACTORS[provider](key, file.type || "image/jpeg", b64);
-    const right = fillGaps(raw.right);
-    const left = fillGaps(raw.left);
-    pending = {
-      right: clean(right.out),
-      left: clean(left.out),
-      inferred: [...new Set([...right.inferred, ...left.inferred])],
-      meta: raw,
-    };
+    stagePending(raw);
     renderPreview();
   } catch (e) {
     $("err").textContent = `Extraction failed — ${e.message}`;
@@ -373,7 +399,8 @@ function renderPreview() {
   const head = `<tr><th></th>${BANDS.map(
     (f) => `<th>${f >= 1000 ? f / 1000 + "k" : f}</th>`).join("")}</tr>`;
   const row = (label, cls, vals) =>
-    `<tr><th>${label}</th>${vals.map((v) => `<td class="${cls}">${v}</td>`).join("")}</tr>`;
+    `<tr><th>${label}</th>${vals.map((v) =>
+      `<td class="${cls}${v > SCOPE_MAX_DB_HL ? " oob" : ""}">${v}</td>`).join("")}</tr>`;
   $("tbl").innerHTML =
     head + row("Right O", "r", pending.right) + row("Left X", "l", pending.left);
   const inferredNote = pending.inferred.length
@@ -387,6 +414,20 @@ function renderPreview() {
   const warnings = plausibilityWarnings(pending.right, pending.left);
   $("plaus").style.display = warnings.length ? "block" : "none";
   $("plaus").textContent = warnings.join(" ");
+  // Scope block: out-of-scope thresholds end the flow here — the review
+  // checkbox and Apply are hidden, not merely disabled, so there is
+  // nothing to tick and nothing to press. Discard is the only way out.
+  const blocked = pending.outOfScope.length > 0;
+  $("scopeBlock").style.display = blocked ? "block" : "none";
+  $("scopeBlock").textContent = blocked
+    ? `This audiogram includes thresholds above ${SCOPE_MAX_DB_HL} dB HL ` +
+      `(${pending.outOfScope.join(", ")} dB HL). This extension's ` +
+      `prescriptions stop at mild-to-moderate loss, so it cannot apply ` +
+      `this import — that range calls for a professionally fitted hearing ` +
+      `instrument, not this tool.`
+    : "";
+  $("reviewedRow").style.display = blocked ? "none" : "flex";
+  $("apply").style.display = blocked ? "none" : "";
   // Review is un-skippable: Apply stays dead until the checkbox is ticked,
   // and the checkbox resets for every new extraction.
   $("reviewed").checked = false;
@@ -394,10 +435,12 @@ function renderPreview() {
   $("preview").style.display = "block";
 }
 
-$("reviewed").onchange = (e) => { $("apply").disabled = !e.target.checked; };
+$("reviewed").onchange = (e) => {
+  $("apply").disabled = !e.target.checked || !!pending?.outOfScope?.length;
+};
 
 $("apply").onclick = () => {
-  if (!$("reviewed").checked) return;
+  if (!$("reviewed").checked || pending?.outOfScope?.length) return;
   chrome.storage.sync.set({ right: pending.right, left: pending.left });
   $("preview").style.display = "none";
   $("err").textContent = "";
@@ -437,14 +480,7 @@ async function runBuiltin() {
   $("busy").style.display = "inline";
   try {
     const raw = await extractBuiltin(file);
-    const right = fillGaps(raw.right);
-    const left = fillGaps(raw.left);
-    pending = {
-      right: clean(right.out),
-      left: clean(left.out),
-      inferred: [...new Set([...right.inferred, ...left.inferred])],
-      meta: raw,
-    };
+    stagePending(raw);
     renderPreview();
   } catch (e) {
     $("err").textContent = `On-device extraction failed — ${e.message}`;

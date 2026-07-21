@@ -254,7 +254,16 @@ flags patterns associated with model misreads (left/right asymmetry over
 perfectly flat identical read), and applied only after the user ticks an
 explicit "I compared every value against the paper report" confirmation —
 the Apply button stays disabled until then, and the confirmation resets on
-every new extraction. Values remain editable on the popup chart afterwards.
+every new extraction. Before any of that, a scope screen applies a hard
+stop: if the extraction contains thresholds above 70 dB HL, the import is
+blocked outright rather than clamped into range — the preview shows the
+real unclamped numbers with the out-of-scope cells highlighted, states
+that the extension's prescriptions stop at mild-to-moderate loss and that
+this range calls for a professionally fitted hearing instrument, and the
+review checkbox and Apply button are removed for that extraction (Discard
+is the only exit). Silently truncating a severe audiogram to 70 and
+amplifying anyway would misrepresent what the tool had done, which is why
+the previous clamp-on-import behavior is now a block. Values remain editable on the popup chart afterwards.
 This un-skippable human-in-the-loop step exists because the recent
 LLM-audiogram literature documents hallucination rates of 4–24% including
 fabricated thresholds, and multimodal models are measurably weaker at
